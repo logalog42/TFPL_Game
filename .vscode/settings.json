@@ -1,0 +1,12 @@
+{
+    "Lua.diagnostics.globals": [
+        "minetest",
+        "vector",
+        "intllib",
+        "ItemStack",
+        "hopper",
+        "VoxelArea",
+        "core"
+    ],
+    "Lua.runtime.version": "Lua 5.1"
+}

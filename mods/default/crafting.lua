@@ -59,14 +59,18 @@ minetest.register_craft({
 minetest.register_craft({
 	output = "default:sign_wall_steel 3",
 	recipe = {
-		{"df_underworld_items:slade_block"},
+		{"default:steel_ingot", "default:steel_ingot", "default:steel_ingot"},
+		{"default:steel_ingot", "default:steel_ingot", "default:steel_ingot"},
+		{"", "group:stick", ""},
 	}
 })
 
 minetest.register_craft({
 	output = "default:sign_wall_wood 3",
 	recipe = {
-		{"df_underworld_items:slade_block","df_underworld_items:slade_block"},
+		{"group:wood", "group:wood", "group:wood"},
+		{"group:wood", "group:wood", "group:wood"},
+		{"", "group:stick", ""},
 	}
 })
 
