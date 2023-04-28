@@ -165,9 +165,9 @@ minetest.register_on_generated(function(minp, maxp, blockseed)
 			local bedrock_depth = d.bedrock_depth
 
 			local sand = d.self.sand
-			local stone =d.self.stone
+			local c_stone =d.self.stone
 			local air = d.self.air
-			local water = d.self.water
+			local c_water = d.self.water
 			local bedrock = d.self.bedrock
 
 			d.self.heat = heat
@@ -179,69 +179,150 @@ minetest.register_on_generated(function(minp, maxp, blockseed)
 
 			mcl_mapgen_core.register_generator("block_fixes", block_fixes, nil, 9999, true)
 
-			for z=minp.z,maxp.z do
-			for y=minp.y,maxp.y do
-				local id=area:index(minp.x,y,z)
-			for x=minp.x,maxp.x do
-				local den = math.abs(map[cindx]) - math.abs(height-y)/(depth*2) or 0
-				if y <= miny+bedrock_depth then
-					data[id] = bedrock
-				elseif enable_water and den < 0.05 and y <= height+d.dirt_depth and y >= height-water_depth  then
-					data[id] = water
-				elseif y < height then
-					data[id] = stone
-				elseif not flatland then
-					if y >= height and y<= ground_limit and den == terrain_density then
-						data[id-area.ystride]=stone
-					end
-				else
-					data[id] = air
-				end
+			-- Set the 3D noise parameters for the terrain.
 
-				if d.on_generate then
-					data = d.on_generate(d.self,data,id,area,x,y,z) or data
-				end
+			local np_terrain = {
+				offset = 0,
+				scale = 1,
+				spread = {x = 384, y = 192, z = 384},
+				seed = 5900033,
+				octaves = 5,
+				persist = 0.63,
+				lacunarity = 2.0,
+				--flags = ""
+			}
 
-				cindx=cindx+1
-				id=id+1
-			end
-			end
-			end
+			-- Initialize noise object to nil. It will be created once only during the
+			-- generation of the first mapchunk, to minimise memory use.
+
+			local nobj_terrain = nil
+
+
+			-- Localise noise buffer table outside the loop, to be re-used for all
+			-- mapchunks, therefore minimising memory use.
+
+			local nvals_terrain = {}
+
+
+			-- Localise data buffer table outside the loop, to be re-used for all
+			-- mapchunks, therefore minimising memory use.
+
+			local data = {}
+
+			-- Detect the biomegen mod if loaded, in order to generate biomes
+			-- and decorations
+
+			local use_biomegen = true
+
+			-- On generated function.
+
+			-- Start time of mapchunk generation.
+			local t0 = os.clock()
 			
-			if maxp.y < (height - 160) then
-				minetest.log("default", "Underground gen")
-				local undergroundmin = {x = minp.x, y = -48, z = minp.z}
-				local undergroundmax = {x = minp.x, y = -31, z = minp.z}
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, undergroundmin, undergroundmax)
-			elseif maxp.y < (height - 80) then
-				minetest.log("default", "Underground gen")
-				local deepoceanmin = {x = minp.x, y = -32, z = minp.z}
-				local deepoceanmax = {x = minp.x, y = -11, z = minp.z}
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, deepoceanmin, deepoceanmax)
-			elseif maxp.y < (height + 1) then
-				minetest.log("default", "ocean gen " .. tostring(maxp.y))
-				local oceanmin = {x = minp.x, y = -12, z = minp.z}
-				local oceanmax = {x = minp.x, y = -1, z = minp.z}
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, oceanmin, oceanmax)
-			else
-				minetest.log("defualt", tostring(maxp.y))
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, minp, maxp)
-			end
-			
-			-- Write content ID data back to the voxelmanip.
-			vm:set_data(data)
-			-- Generate ores using core's function
-			minetest.generate_ores(vm, minp, maxp)
-			-- Generate decorations in VM (needs 'data' for reading)
-			biomegen.place_all_decos(data, area, vm, minp, maxp, minetest.get_mapgen_setting("seed") + 99999)
-			-- Update data array to have ores/decorations
+			-- Noise stuff.
+
+			-- Side length of mapchunk.
+			local sidelen = maxp.x - minp.x + 1
+			-- Required dimensions of the 3D noise perlin map.
+			local permapdims3d = {x = sidelen, y = sidelen, z = sidelen}
+			-- Create the perlin map noise object once only, during the generation of
+			-- the first mapchunk when 'nobj_terrain' is 'nil'.
+			nobj_terrain = nobj_terrain or
+				minetest.get_perlin_map(np_terrain, permapdims3d)
+			-- Create a flat array of noise values from the perlin map, with the
+			-- minimum point being 'minp'.
+			-- Set the buffer parameter to use and reuse 'nvals_terrain' for this.
+			nobj_terrain:get_3d_map_flat(minp, nvals_terrain)
+
+			-- Voxelmanip stuff.
+
+			-- Load the voxelmanip with the result of engine mapgen. Since 'singlenode'
+			-- mapgen is used this will be a mapchunk of air nodes.
+			local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
+			-- 'area' is used later to get the voxelmanip indexes for positions.
+			local area = VoxelArea:new{MinEdge = emin, MaxEdge = emax}
+			-- Get the content ID data from the voxelmanip in the form of a flat array.
+			-- Set the buffer parameter to use and reuse 'data' for this.
 			vm:get_data(data)
-			-- Add biome dust in VM (needs 'data' for reading)
-			biomegen.dust_top_nodes(data, area, vm, minp, maxp)
+
+			-- Generation loop.
+
+			-- Noise index for the flat array of noise values.
+			local ni = 1
+			-- Process the content IDs in 'data'.
+			-- The most useful order is a ZYX loop because:
+			-- 1. This matches the order of the 3D noise flat array.
+			-- 2. This allows a simple +1 incrementing of the voxelmanip index along x
+			-- rows.
+			for z = minp.z, maxp.z do
+			for y = minp.y, maxp.y do
+				-- Voxelmanip index for the flat array of content IDs.
+				-- Initialise to first node in this x row.
+				local vi = area:index(minp.x, y, z)
+				for x = minp.x, maxp.x do
+					-- Consider a 'solidness' value for each node,
+					-- let's call it 'density', where
+					-- density = density noise + density gradient.
+					local density_noise = nvals_terrain[ni]
+					-- Density gradient is a value that is 0 at water level (y = 1)
+					-- and falls in value with increasing y. This is necessary to
+					-- create a 'world surface' with only solid nodes deep underground
+					-- and only air high above water level.
+					-- Here '128' determines the typical maximum height of the terrain.
+					local density_gradient = (height - y) / ground_limit
+					-- Place solid nodes when 'density' > 0.
+					if density_noise + density_gradient > 0 then
+						data[vi] = c_stone
+					-- Otherwise if at or below water level place water.
+					elseif y <= height and y >= (height - 100) then
+						data[vi] = c_water
+					else
+						data[vi] = c_stone
+					end
+
+					--todo need to create generation for sand
+
+					-- Increment noise index.
+					ni = ni + 1
+					-- Increment voxelmanip index along x row.
+					-- The voxelmanip index increases by 1 when
+					-- moving by 1 node in the +x direction.
+					vi = vi + 1
+				end
+			end
+			end
+
+			if use_biomegen then
+				if maxp.y < (height - 100) then
+					local undergroundmin = {x = minp.x, y = -48, z = minp.z}
+					local undergroundmax = {x = minp.x, y = -31, z = minp.z}
+					biomegen.generate_biomes(data, area, undergroundmin, undergroundmax)
+				elseif maxp.y < (height - 80) then
+					local deepoceanmin = {x = minp.x, y = -32, z = minp.z}
+					local deepoceanmax = {x = minp.x, y = -11, z = minp.z}
+					biomegen.generate_biomes(data, area, deepoceanmin, deepoceanmax)
+				elseif maxp.y < (height + 1) then
+					local oceanmin = {x = minp.x, y = -12, z = minp.z}
+					local oceanmax = {x = minp.x, y = -1, z = minp.z}
+					biomegen.generate_biomes(data, area, oceanmin, oceanmax)
+				else
+					-- Generate biomes in 'data', using biomegen mod
+					biomegen.generate_biomes(data, area, minp, maxp)
+				end
+				-- Write content ID data back to the voxelmanip.
+				vm:set_data(data)
+				-- Generate ores using core's function
+				minetest.generate_ores(vm, minp, maxp)
+				-- Generate decorations in VM (needs 'data' for reading)
+				biomegen.place_all_decos(data, area, vm, minp, maxp, blockseed)
+				-- Update data array to have ores/decorations
+				vm:get_data(data)
+				-- Add biome dust in VM (needs 'data' for reading)
+				biomegen.dust_top_nodes(data, area, vm, minp, maxp)
+			else
+				-- If biomegen is not present, just write content ID data back to the VM.
+				vm:set_data(data)
+			end
 
 			-- Calculate lighting for what has been created.
 			vm:calc_lighting()
@@ -249,6 +330,10 @@ minetest.register_on_generated(function(minp, maxp, blockseed)
 			vm:write_to_map()
 			-- Liquid nodes were placed so set them flowing.
 			vm:update_liquids()
+
+			-- Print generation time of this mapchunk.
+			local chugent = math.ceil((os.clock() - t0) * 1000)
+			print ("[lvm_example] Mapchunk generation time " .. chugent .. " ms")
 		end
 	end
 end)
