@@ -35,7 +35,7 @@ end
 -- If the Y coordinate is not located in any dimension, it will return:
 --     nil, "void"
 function mcl_worlds.y_to_layer(y)
-	if y >= mcl_vars.mg_overworld_min then
+	if y >= mcl_vars.mg_overworld_min and y <= mcl_vars.mg_overworld_max then
 		return y - mcl_vars.mg_overworld_min, "overworld"
 	elseif y >= mcl_vars.mg_nether_min and y <= mcl_vars.mg_nether_max+128 then
 		return y - mcl_vars.mg_nether_min, "nether"

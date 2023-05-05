@@ -271,13 +271,11 @@ minetest.register_on_generated(function(minp, maxp, blockseed)
 					-- Here '128' determines the typical maximum height of the terrain.
 					local density_gradient = (height - y) / ground_limit
 					-- Place solid nodes when 'density' > 0.
-					if density_noise + density_gradient > 0 then
+					if density_noise + density_gradient > 0  and y <= ground_limit then
 						data[vi] = c_stone
 					-- Otherwise if at or below water level place water.
 					elseif y <= height and y >= (height - 100) then
 						data[vi] = c_water
-					else
-						data[vi] = c_stone
 					end
 
 					--todo need to create generation for sand
@@ -307,7 +305,9 @@ minetest.register_on_generated(function(minp, maxp, blockseed)
 					biomegen.generate_biomes(data, area, oceanmin, oceanmax)
 				else
 					-- Generate biomes in 'data', using biomegen mod
-					biomegen.generate_biomes(data, area, minp, maxp)
+					local overworldmin = {x = minp.x, y = 1, z = minp.z}
+					local overworldmax = {x = minp.x, y = 100, z = minp.z}
+					biomegen.generate_biomes(data, area, overworldmin, overworldmax)
 				end
 				-- Write content ID data back to the voxelmanip.
 				vm:set_data(data)

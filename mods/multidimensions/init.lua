@@ -26,6 +26,11 @@ multidimensions={
 	},
 }
 
+for index, value in ipairs(minetest.registered_biomes) do
+	minetest.log('default', index)
+end
+
+
 dofile(minetest.get_modpath("multidimensions") .. "/api.lua")
 dofile(minetest.get_modpath("multidimensions") .. "/dimensions.lua")
 dofile(minetest.get_modpath("multidimensions") .. "/tools.lua")
