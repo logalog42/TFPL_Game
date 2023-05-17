@@ -67,7 +67,7 @@ local tropical_fish = {
 	xp_min = 1,
 	xp_max = 3,
 	armor = 100,
-	spawn_in_group = 9,
+	spawn_in_group = 4, -- was 9. nerfed until aquatics use own cap rather than animal, and it represents pack size, not per spawn attempt
 	tilt_swim = true,
 	collisionbox = {-0.2, 0.0, -0.2, 0.2, 0.1, 0.2},
 	visual = "mesh",
@@ -87,7 +87,7 @@ local tropical_fish = {
 		chance = 1,
 		min = 1,
 		max = 1,},
-		{name = "mcl_dye:white",
+		{name = "mcl_bone_meal:bone_meal",
 		chance = 20,
 		min = 1,
 		max = 1,},
@@ -118,7 +118,7 @@ local tropical_fish = {
 	on_spawn = set_textures,
 }
 
-mcl_mobs:register_mob("mobs_mc:tropical_fish", tropical_fish)
+mcl_mobs.register_mob("mobs_mc:tropical_fish", tropical_fish)
 
 local water = 0
 mcl_mobs:spawn_specific(
@@ -189,4 +189,4 @@ water-16,
 water+1)
 
 --spawn egg
-mcl_mobs:register_egg("mobs_mc:tropical_fish", S("Tropical fish"), "#ef6915", "#fff9ef", 0)
+mcl_mobs.register_egg("mobs_mc:tropical_fish", S("Tropical fish"), "#ef6915", "#fff9ef", 0)

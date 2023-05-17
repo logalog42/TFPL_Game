@@ -1,6 +1,7 @@
+local zombie_siege_enabled = minetest.settings:get_bool("mcl_raids_zombie_siege", false)
 
 local function check_spawn_pos(pos)
-	return minetest.get_natural_light(pos) < 7
+	return mcl_util.get_natural_light(pos) < 7
 end
 
 local function spawn_zombies(self)
@@ -10,10 +11,14 @@ local function spawn_zombies(self)
 		local p = vector.offset(nn[i%#nn],0,1,0)
 		if check_spawn_pos(p) then
 			local m = mcl_mobs.spawn(p,"mobs_mc:zombie")
-			local l = m:get_luaentity()
-			mcl_mobs:gopath(m:get_luaentity(),self.pos)
-			table.insert(self.mobs,m)
-			self.health_max = self.health_max + l.health
+			if m then
+				local l = m:get_luaentity()
+				l:gopath(self.pos)
+				table.insert(self.mobs, m)
+				self.health_max = self.health_max + l.health
+			else
+				--minetest.log("Failed to spawn zombie at location: " .. minetest.pos_to_string(p))
+			end
 		end
 	end
 end
@@ -26,15 +31,31 @@ mcl_events.register_event("zombie_siege",{
 	exclusive_to_area = 128,
 	enable_bossbar = false,
 	cond_start  = function(self)
+		--minetest.log("Cond start zs")
+		local r = {}
+
+		if not zombie_siege_enabled then
+			--minetest.log("action", "Zombie siege disabled")
+			return r
+		else
+			--minetest.log("action", "Zombie siege start check")
+		end
+
+		local t = minetest.get_timeofday()
 		local pr = PseudoRandom(minetest.get_day_count())
 		local rnd = pr:next(1,10)
-		local t = minetest.get_timeofday()
-		local r = {}
-		for _,p in pairs(minetest.get_connected_players()) do
-			local village = mcl_raids.find_village(p:get_pos())
-			if t < 0.04 and village and rnd == 1 then
-				table.insert(r,{ player = p:get_player_name(), pos = village})
+
+		if t < 0.04 and rnd == 1 then
+			--minetest.log("Well, it's siege time")
+			for _,p in pairs(minetest.get_connected_players()) do
+				local village = mcl_raids.find_village(p:get_pos())
+				if village then
+					minetest.log("action", "Zombie siege is starting")
+					table.insert(r,{ player = p:get_player_name(), pos = village})
+				end
 			end
+		else
+			--minetest.log("Not night for a siege, or not success")
 		end
 		if #r > 0 then return r end
 	end,

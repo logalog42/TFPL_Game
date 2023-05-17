@@ -8,17 +8,17 @@ local S = minetest.get_translator("mobs_mc")
 
 
 
-mcl_mobs:register_mob("mobs_mc:chicken", {
+mcl_mobs.register_mob("mobs_mc:chicken", {
 	description = S("Chicken"),
 	type = "animal",
 	spawn_class = "passive",
-
+	passive = true,
+	runaway = true,
 	hp_min = 4,
 	hp_max = 4,
 	xp_min = 1,
 	xp_max = 3,
 	collisionbox = {-0.2, -0.01, -0.2, 0.2, 0.69, 0.2},
-	runaway = true,
 	floats = 1,
 	head_swivel = "head.control",
 	bone_eye_height = 4,
@@ -83,7 +83,7 @@ mcl_mobs:register_mob("mobs_mc:chicken", {
 	fear_height = 4,
 
 	on_rightclick = function(self, clicker)
-		if mcl_mobs:feed_tame(self, clicker, 1, true, false) then return end
+		if self:feed_tame(clicker, 1, true, false) then return end
 		if mcl_mobs:protect(self, clicker) then return end
 		if mcl_mobs:capture_mob(self, clicker, 0, 60, 5, false, nil) then return end
 	end,
@@ -163,4 +163,4 @@ mobs_mc.water_level,
 mcl_vars.mg_overworld_max)
 
 -- spawn eggs
-mcl_mobs:register_egg("mobs_mc:chicken", S("Chicken"), "#a1a1a1", "#ff0000", 0)
+mcl_mobs.register_egg("mobs_mc:chicken", S("Chicken"), "#a1a1a1", "#ff0000", 0)

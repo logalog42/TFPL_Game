@@ -113,14 +113,17 @@ local function on_dig_banner(pos, node, digger)
 		minetest.record_protection_violation(pos, name)
 		return
 	end
-	-- Drop item
-	local meta = minetest.get_meta(pos)
-	local item = meta:get_inventory():get_stack("banner", 1)
-	if not item:is_empty() then
-		minetest.handle_node_drops(pos, {item:to_string()}, digger)
-	else
-		minetest.handle_node_drops(pos, {"mcl_banners:banner_item_white"}, digger)
-	end
+
+	local inv = minetest.get_meta(pos):get_inventory()
+	local item = inv:get_stack("banner", 1)
+	local item_str = item:is_empty() and "mcl_banners:banner_item_white"
+		or item:to_string()
+
+	minetest.handle_node_drops(pos, { item_str }, digger)
+
+	item:set_count(0)
+	inv:set_stack("banner", 1, item)
+
 	-- Remove node
 	minetest.remove_node(pos)
 end
@@ -142,6 +145,13 @@ local function on_destruct_banner(pos, hanging)
 		if ent and ent.name == nodename then
 			v:remove()
 		end
+	end
+
+	-- Drop item only if it was not handled in on_dig_banner
+	local inv = minetest.get_meta(pos):get_inventory()
+	local item = inv:get_stack("banner", 1)
+	if not item:is_empty() then
+		minetest.handle_node_drops(pos, {item:to_string()})
 	end
 end
 

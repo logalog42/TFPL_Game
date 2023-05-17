@@ -8,6 +8,48 @@ if mod_screwdriver then
 	on_rotate = screwdriver.rotate_3way
 end
 
+-- Check dug/destroyed tree trunks for orphaned leaves.
+--
+-- This function is meant to be called by the `after_destruct` handler of
+-- treetrunk nodes.
+--
+-- Whenever a trunk node is removed, all `group:leaves` nodes in a sphere
+-- with radius 6 are checked.  Every such node that does not have a trunk
+-- node within a distance of 6 blocks and wasn't placed by a player is
+-- converted into a orphan leaf node.
+-- An ABM will gradually decay these nodes.
+--
+--
+-- @param pos the position of the removed trunk node.
+-- @param oldnode the node table of the removed trunk node.
+function mcl_core.update_leaves(pos, oldnode)
+	local pos1, pos2 = vector.offset(pos, -6, -6, -6), vector.offset(pos, 6, 6, 6)
+	local lnode, lmeta
+	local leaves = minetest.find_nodes_in_area(pos1, pos2, "group:leaves")
+	for _, lpos in pairs(leaves) do
+		lnode = minetest.get_node(lpos)
+		lmeta = minetest.get_meta(lpos)
+		-- skip already decaying leaf nodes and player leaves
+		if minetest.get_item_group(lnode.name, "orphan_leaves") ~= 1 and lmeta:get_int("player_leaves") ~= 1 then
+			if not minetest.find_node_near(lpos, 6, "group:tree") then
+				local orphan_name = lnode.name .. "_orphan"
+				local def = minetest.registered_nodes[orphan_name]
+				if def then
+					--minetest.log("Registered: ".. orphan_name)
+					minetest.set_node(lpos, {name = orphan_name})
+				else
+					--minetest.log("Not registered: ".. orphan_name)
+				end
+			end
+		end
+	end
+end
+
+function mcl_core.make_player_leaves(pos)
+	local meta = minetest.get_meta(pos)
+	meta:set_int("player_leaves", 1)
+end
+
 -- Register tree trunk (wood) and bark
 local function register_tree_trunk(subname, description_trunk, description_bark, longdesc, tile_inner, tile_bark, stripped_variant)
 	minetest.register_node("mcl_core:"..subname, {
@@ -17,6 +59,7 @@ local function register_tree_trunk(subname, description_trunk, description_bark,
 		tiles = {tile_inner, tile_inner, tile_bark},
 		paramtype2 = "facedir",
 		on_place = mcl_util.rotate_axis,
+		after_destruct = mcl_core.update_leaves,
 		stack_max = 64,
 		groups = {handy=1,axey=1, tree=1, flammable=2, building_block=1, material_wood=1, fire_encouragement=5, fire_flammability=5},
 		sounds = mcl_sounds.node_sound_wood_defaults(),
@@ -107,10 +150,7 @@ local function register_wooden_planks(subname, description, tiles)
 	})
 end
 
-local function register_leaves(subname, description, longdesc, tiles, sapling, drop_apples, sapling_chances, leafdecay_distance)
-	if leafdecay_distance == nil then
-		leafdecay_distance = 4
-	end
+local function register_leaves(subname, description, longdesc, tiles, color, paramtype2, palette, sapling, drop_apples, sapling_chances, foliage_palette)
 	local apple_chances = {200, 180, 160, 120, 40}
 	local stick_chances = {50, 45, 30, 35, 10}
 
@@ -141,21 +181,22 @@ local function register_leaves(subname, description, longdesc, tiles, sapling, d
 		return drop
 	end
 
-	minetest.register_node("mcl_core:"..subname, {
+	local l_def = {
 		description = description,
 		_doc_items_longdesc = longdesc,
 		_doc_items_hidden = false,
 		drawtype = "allfaces_optional",
 		waving = 2,
-		place_param2 = 1, -- Prevent leafdecay for placed nodes
 		tiles = tiles,
+		color = color,
 		paramtype = "light",
+		paramtype2 = paramtype2,
+		palette = palette,
 		stack_max = 64,
 		groups = {
 			handy = 1, hoey = 1, shearsy = 1, swordy = 1, dig_by_piston = 1,
-			leaves = 1, leafdecay = leafdecay_distance, deco_block = 1,
 			flammable = 2, fire_encouragement = 30, fire_flammability = 60,
-			compostability = 30
+			leaves = 1, deco_block = 1, compostability = 30, foliage_palette = foliage_palette
 		},
 		drop = get_drops(0),
 		_mcl_shears_drop = true,
@@ -164,7 +205,30 @@ local function register_leaves(subname, description, longdesc, tiles, sapling, d
 		_mcl_hardness = 0.2,
 		_mcl_silk_touch_drop = true,
 		_mcl_fortune_drop = { get_drops(1), get_drops(2), get_drops(3), get_drops(4) },
-	})
+		on_construct = function(pos)
+			local node = minetest.get_node(pos)
+			if node.param2 == 0 then
+				local new_node = mcl_core.get_foliage_block_type(pos)
+				if new_node.param2 ~= 0 then
+					minetest.swap_node(pos, new_node)
+				end
+			end
+		end,
+		after_place_node = function(pos)
+			mcl_core.make_player_leaves(pos) -- Leaves placed by the player should always be player leaves.
+		end,
+		}
+
+	minetest.register_node("mcl_core:" .. subname, l_def)
+
+	local o_def = table.copy(l_def)
+	o_def._doc_items_create_entry = false
+	o_def.groups.not_in_creative_inventory = 1
+	o_def.groups.orphan_leaves = 1
+	o_def._mcl_shears_drop = {"mcl_core:" .. subname}
+	o_def._mcl_silk_touch_drop = {"mcl_core:" .. subname}
+
+	minetest.register_node("mcl_core:" .. subname .. "_orphan", o_def)
 end
 
 local function register_sapling(subname, description, longdesc, tt_help, texture, selbox)
@@ -260,12 +324,12 @@ register_sapling("birchsapling", S("Birch Sapling"),
 	"mcl_core_sapling_birch.png", {-4/16, -0.5, -4/16, 4/16, 0.5, 4/16})
 
 
-register_leaves("leaves", S("Oak Leaves"), S("Oak leaves are grown from oak trees."), {"default_leaves.png"}, "mcl_core:sapling", true, {20, 16, 12, 10})
-register_leaves("darkleaves", S("Dark Oak Leaves"), S("Dark oak leaves are grown from dark oak trees."), {"mcl_core_leaves_big_oak.png"}, "mcl_core:darksapling", true, {20, 16, 12, 10})
-register_leaves("jungleleaves", S("Jungle Leaves"), S("Jungle leaves are grown from jungle trees."), {"default_jungleleaves.png"}, "mcl_core:junglesapling", false, {40, 26, 32, 24, 10})
-register_leaves("acacialeaves", S("Acacia Leaves"), S("Acacia leaves are grown from acacia trees."), {"default_acacia_leaves.png"}, "mcl_core:acaciasapling", false, {20, 16, 12, 10})
-register_leaves("spruceleaves", S("Spruce Leaves"), S("Spruce leaves are grown from spruce trees."), {"mcl_core_leaves_spruce.png"}, "mcl_core:sprucesapling", false, {20, 16, 12, 10})
-register_leaves("birchleaves", S("Birch Leaves"), S("Birch leaves are grown from birch trees."), {"mcl_core_leaves_birch.png"}, "mcl_core:birchsapling", false, {20, 16, 12, 10})
+register_leaves("leaves", S("Oak Leaves"), S("Oak leaves are grown from oak trees."), {"default_leaves.png"}, "#48B518", "color", "mcl_core_palette_foliage.png", "mcl_core:sapling", true, {20, 16, 12, 10}, 1)
+register_leaves("darkleaves", S("Dark Oak Leaves"), S("Dark oak leaves are grown from dark oak trees."), {"mcl_core_leaves_big_oak.png"}, "#48B518", "color", "mcl_core_palette_foliage.png", "mcl_core:darksapling", true, {20, 16, 12, 10}, 1)
+register_leaves("jungleleaves", S("Jungle Leaves"), S("Jungle leaves are grown from jungle trees."), {"default_jungleleaves.png"}, "#48B518", "color", "mcl_core_palette_foliage.png", "mcl_core:junglesapling", false, {40, 26, 32, 24, 10}, 1)
+register_leaves("acacialeaves", S("Acacia Leaves"), S("Acacia leaves are grown from acacia trees."), {"default_acacia_leaves.png"}, "#48B518", "color", "mcl_core_palette_foliage.png", "mcl_core:acaciasapling", false, {20, 16, 12, 10}, 1)
+register_leaves("spruceleaves", S("Spruce Leaves"), S("Spruce leaves are grown from spruce trees."), {"mcl_core_leaves_spruce.png"}, "#619961", "none", nil, "mcl_core:sprucesapling", false, {20, 16, 12, 10}, 0)
+register_leaves("birchleaves", S("Birch Leaves"), S("Birch leaves are grown from birch trees."), {"mcl_core_leaves_birch.png"}, "#80A755", "none", nil, "mcl_core:birchsapling", false, {20, 16, 12, 10}, 0)
 
 
 

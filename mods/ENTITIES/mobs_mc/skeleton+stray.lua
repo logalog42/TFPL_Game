@@ -45,7 +45,7 @@ local skeleton = {
 		}
 	},
 	walk_velocity = 1.2,
-	run_velocity = 2.4,
+	run_velocity = 2.0,
 	damage = 2,
 	reach = 2,
 	drops = {
@@ -89,23 +89,11 @@ local skeleton = {
 		die_speed = 15,
 		die_loop = false,
 	},
-	jock = "mobs_mc:spider",
 	on_spawn = function(self)
-		minetest.after(1,function()
-			if self and self.object then
-				if math.random(100) == 1 or self.jockey == true then -- 1% like from MCwiki
-					self.jockey = true
-					local jock = minetest.add_entity(self.object:get_pos(), "mobs_mc:spider")
-					jock:get_luaentity().docile_by_day = false
-					self.object:set_attach(jock, "", vector.new(0,0,0), vector.new(0,0,0))
-				end
-				self.jockey = false
-				return true
-			end
-		end)
-	end,
-	on_detach=function(self, parent)
-		self.jockey = false
+		if math.random(100) == 1 then
+			self:jock_to("mobs_mc:spider", vector.zero(), vector.zero())
+		end
+		return true
 	end,
 	ignited_by_sunlight = true,
 	view_range = 16,
@@ -129,7 +117,7 @@ local skeleton = {
 	harmed_by_heal = true,
 }
 
-mcl_mobs:register_mob("mobs_mc:skeleton", skeleton)
+mcl_mobs.register_mob("mobs_mc:skeleton", skeleton)
 
 
 --###################
@@ -166,7 +154,7 @@ table.insert(stray.drops, {
 	end,
 })
 
-mcl_mobs:register_mob("mobs_mc:stray", stray)
+mcl_mobs.register_mob("mobs_mc:stray", stray)
 
 -- Overworld spawn
 mcl_mobs:spawn_specific(
@@ -356,6 +344,6 @@ mcl_vars.mg_overworld_max)
 
 
 -- spawn eggs
-mcl_mobs:register_egg("mobs_mc:skeleton", S("Skeleton"), "#c1c1c1", "#494949", 0)
+mcl_mobs.register_egg("mobs_mc:skeleton", S("Skeleton"), "#c1c1c1", "#494949", 0)
 
-mcl_mobs:register_egg("mobs_mc:stray", S("Stray"), "#5f7476", "#dae8e7", 0)
+mcl_mobs.register_egg("mobs_mc:stray", S("Stray"), "#5f7476", "#dae8e7", 0)

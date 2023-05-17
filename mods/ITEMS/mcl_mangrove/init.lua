@@ -52,9 +52,9 @@ minetest.register_node("mcl_mangrove:mangrove_tree", {
 	tiles = {"mcl_mangrove_log_top.png", "mcl_mangrove_log_top.png", "mcl_mangrove_log.png"},
 	paramtype2 = "facedir",
 	on_place = mcl_util.rotate_axis,
+	after_destruct = mcl_core.update_leaves,
 	groups = {handy=1,axey=1, tree=1, flammable=2, building_block=1, material_wood=1, fire_encouragement=5, fire_flammability=5},
 	sounds = mcl_sounds.node_sound_wood_defaults(),
-	on_place = mcl_util.rotate_axis,
 	_mcl_blast_resistance = 2,
 	_mcl_hardness = 2,
 	_mcl_stripped_variant = "mcl_mangrove:mangrove_stripped_trunk",
@@ -86,16 +86,22 @@ minetest.register_node("mcl_mangrove:mangrove_wood", {
 	_mcl_hardness = 2,
 })
 
-minetest.register_node("mcl_mangrove:mangroveleaves", {
+local l_def = {
 	description = S("Mangrove Leaves"),
 	_doc_items_longdesc = S("mangrove leaves are grown from mangrove trees."),
 	_doc_items_hidden = false,
 	drawtype = "allfaces_optional",
 	waving = 2,
-	place_param2 = 1, -- Prevent leafdecay for placed nodes
 	tiles = {"mcl_mangrove_leaves.png"},
+	color = "#48B518",
 	paramtype = "light",
-	groups = {handy=1,shearsy=1,swordy=1, leafdecay=10, flammable=2, leaves=1, deco_block=1, dig_by_piston=1, fire_encouragement=30, fire_flammability=60},
+	paramtype2 = "color",
+	palette = "mcl_core_palette_foliage.png",
+	groups = {
+		handy = 1, hoey = 1, shearsy = 1, swordy = 1, dig_by_piston = 1,
+		flammable = 2, fire_encouragement = 30, fire_flammability = 60,
+		leaves = 1, deco_block = 1, compostability = 30, foliage_palette = 1
+	},
 	drop = get_drops(0),
 	_mcl_shears_drop = true,
 	sounds = mcl_sounds.node_sound_leaves_defaults(),
@@ -103,7 +109,30 @@ minetest.register_node("mcl_mangrove:mangroveleaves", {
 	_mcl_hardness = 0.2,
 	_mcl_silk_touch_drop = true,
 	_mcl_fortune_drop = { get_drops(1), get_drops(2), get_drops(3), get_drops(4) },
-})
+	on_construct = function(pos)
+		local node = minetest.get_node(pos)
+		if node.param2 == 0 or node.param2 == 1 then -- Check if param2 is 1 as well, since the schematics accidentally have the param2 of mangrove leaves be 1.
+			local new_node = mcl_core.get_foliage_block_type(pos)
+			if new_node.param2 ~= 0 then
+				minetest.swap_node(pos, new_node)
+			end
+		end
+	end,
+	after_place_node = function(pos)
+		mcl_core.make_player_leaves(pos) -- Leaves placed by the player should always be player leaves.
+	end,
+}
+
+minetest.register_node("mcl_mangrove:mangroveleaves", l_def)
+
+local o_def = table.copy(l_def)
+o_def._doc_items_create_entry = false
+o_def.groups.not_in_creative_inventory = 1
+o_def.groups.orphan_leaves = 1
+o_def._mcl_shears_drop = {"mcl_mangrove:mangroveleaves"}
+o_def._mcl_silk_touch_drop = {"mcl_mangrove:mangroveleaves"}
+
+minetest.register_node("mcl_mangrove:mangroveleaves_orphan", o_def)
 
 minetest.register_node("mcl_mangrove:mangrove_stripped_trunk", {
 	description = S("Stripped Mangrove Wood"),
@@ -147,11 +176,13 @@ minetest.register_node("mcl_mangrove:mangrove_roots", {
 	drawtype = "allfaces_optional",
 	groups = {
 		handy = 1, hoey = 1, shearsy = 1, axey = 1, swordy = 1, dig_by_piston = 0,
-		leaves = 1, deco_block = 1,flammable = 10, fire_encouragement = 30, fire_flammability = 60,	compostability = 30
+		flammable = 10, fire_encouragement = 30, fire_flammability = 60,
+		deco_block = 1, compostability = 30
 	},
 	drop = "mcl_mangrove:mangrove_roots",
 	_mcl_shears_drop = true,
-	sounds = mcl_sounds.node_sound_leaves_defaults(),			_mcl_blast_resistance = 0.7,
+	sounds = mcl_sounds.node_sound_leaves_defaults(),
+	_mcl_blast_resistance = 0.7,
 	_mcl_hardness = 0.7,
 	_mcl_silk_touch_drop = true,
 	_mcl_fortune_drop = { "mcl_mangrove:mangrove_roots 1", "mcl_mangrove:mangrove_roots 2", "mcl_mangrove:mangrove_roots 3", "mcl_mangrove:mangrove_roots 4" },
@@ -280,7 +311,7 @@ mcl_flowerpots.register_potted_flower("mcl_mangrove:propagule", {
 	image = "mcl_mangrove_propagule.png",
 })
 
-local water_tex = "default_water_source_animated.png^[verticalframe:16:0"
+local water_tex = "default_water_source_animated.png^[verticalframe:16:0^[multiply:#3F76E4"
 
 local wlroots = {
 	description = S("water logged mangrove roots"),
@@ -329,7 +360,10 @@ local wlroots = {
 	end,
 }
 local rwlroots = table.copy(wlroots)
-water_tex = "default_river_water_source_animated.png^[verticalframe:16:0"
+-- FIXME luacheck complains that this is a repeated definition of water_tex.
+-- Maybe the tiles definition below should be replaced with the animated tile
+-- definition as per above?
+water_tex = "default_water_source_animated.png^[verticalframe:16:0^[multiply:#0084FF"
 rwlroots.tiles = {
 	"("..water_tex..")^mcl_mangrove_roots_top.png",
 	"("..water_tex..")^mcl_mangrove_roots_side.png",
@@ -363,8 +397,8 @@ mcl_doors:register_door("mcl_mangrove:mangrove_door", {
 	groups = {handy=1,axey=1, material_wood=1, flammable=-1},
 	_mcl_hardness = 3,
 	_mcl_blast_resistance = 3,
-	tiles_bottom = {"mcl_mangrove_door_bottom.png", "mcl_mangrove_planks.png"},
-	tiles_top = {"mcl_mangrove_door_top.png", "mcl_mangrove_planks.png"},
+	tiles_bottom = {"mcl_mangrove_door_bottom.png", "mcl_doors_door_mangrove_side_lower.png"},
+	tiles_top = {"mcl_mangrove_door_top.png", "mcl_doors_door_mangrove_side_upper.png"},
 	sounds = mcl_sounds.node_sound_wood_defaults(),
 })
 
@@ -528,8 +562,9 @@ minetest.register_abm({
 			local nn = minetest.find_nodes_in_area(vector.offset(pos,0,-1,0),vector.offset(pos,0,h,0),{"group:water","air"})
 			if #nn >= h then
 				minetest.place_schematic(pos, path, "random", function()
-					local nnv = minetest.find_nodes_in_area(vector.offset(pos,-5,-1,-5),vector.offset(pos,5,h/2,5),{"mcl_core:vine"})
-					minetest.bulk_set_node(nnv,{"air"})
+				mcl_core.update_sapling_foliage_colors(pos)
+				local nnv = minetest.find_nodes_in_area(vector.offset(pos,-5,-1,-5),vector.offset(pos,5,h/2,5),{"mcl_core:vine"})
+				minetest.bulk_set_node(nnv,{"air"})
 				end, true, "place_center_x, place_center_z")
 			end
 			return
@@ -537,6 +572,7 @@ minetest.register_abm({
 		if r > 3 then h = 18 end
 		if mcl_core.check_growth_width(pos,w,h) then
 			minetest.place_schematic(pos, path, "random", nil, true, "place_center_x, place_center_z")
+			mcl_core.update_sapling_foliage_colors(pos)
 		end
-end
+	end,
 })

@@ -19,50 +19,6 @@ dig_speed_class group:
 - 7: Instantaneous
 ]]
 
--- The hand
-local groupcaps, hand_range, hand_groups
-
-if minetest.is_creative_enabled("") then
-	-- Instant breaking in creative mode
-	groupcaps = { creative_breakable = { times = {0}, uses = 0 } }
-	hand_range = tonumber(minetest.settings:get("mcl_hand_range_creative")) or 10
-	hand_groups = { dig_speed_class = 7 }
-else
-	groupcaps = {}
-	hand_range = tonumber(minetest.settings:get("mcl_hand_range")) or 4.5
-	hand_groups = { dig_speed_class = 1 }
-end
-minetest.register_tool(":", {
-	type = "none",
-	_doc_items_longdesc = S("You use your bare hand whenever you are not wielding any item. With your hand you can mine most blocks, but this is the slowest method and only the weakest blocks will yield their useful drop. The hand also deals minor damage by punching. Using the hand is often a last resort, as proper mining tools and weapons are much better.").."\n"..
-			S("When you are wielding an item which is not a mining tool or a weapon, it will behave as if it were the hand when you start mining or punching.").."\n"..
-			S("In Creative Mode, the hand is able to break all blocks instantly."),
-	wield_image = "blank.png",
-	wield_scale = {x=1.0,y=1.0,z=2.0},
-	-- According to Minecraft Wiki, the exact range is 3.975.
-	-- Minetest seems to only support whole numbers, so we use 4.
-	range = hand_range,
-	tool_capabilities = {
-		full_punch_interval = 0.25,
-		max_drop_level = 0,
-		groupcaps = groupcaps,
-		damage_groups = {fleshy=1},
-	},
-	groups = hand_groups,
-	_mcl_diggroups = {
-		handy = { speed = 1, level = 1, uses = 0 },
-		axey = { speed = 1, level = 1, uses = 0 },
-		shovely = { speed = 1, level = 1, uses = 0 },
-		hoey = { speed = 1, level = 1, uses = 0 },
-		pickaxey = { speed = 1, level = 0, uses = 0 },
-		swordy = { speed = 1, level = 0, uses = 0 },
-		swordy_cobweb = { speed = 1, level = 0, uses = 0 },
-		shearsy = { speed = 1, level = 0, uses = 0 },
-		shearsy_wool = { speed = 1, level = 0, uses = 0 },
-		shearsy_cobweb = { speed = 1, level = 0, uses = 0 },
-	}
-})
-
 -- Help texts
 local pickaxe_longdesc = S("Pickaxes are mining tools to mine hard blocks, such as stone. A pickaxe can also be used as weapon, but it is rather inefficient.")
 local axe_longdesc = S("An axe is your tool of choice to cut down trees, wood-based blocks and other blocks. Axes deal a lot of damage as well, but they are rather slow.")
@@ -227,7 +183,9 @@ local make_grass_path = function(itemstack, placer, pointed_thing)
 				-- Add wear (as if digging a shovely node)
 				local toolname = itemstack:get_name()
 				local wear = mcl_autogroup.get_wear(toolname, "shovely")
-				itemstack:add_wear(wear)
+				if wear then
+					itemstack:add_wear(wear)
+				end
 			end
 			minetest.sound_play({name="default_grass_footstep", gain=1}, {pos = above}, true)
 			minetest.swap_node(pointed_thing.under, {name="mcl_core:grass_path"})
@@ -256,7 +214,10 @@ if minetest.get_modpath("mcl_farming") then
 				-- Add wear (as if digging a shearsy node)
 				local toolname = itemstack:get_name()
 				local wear = mcl_autogroup.get_wear(toolname, "shearsy")
-				itemstack:add_wear(wear)
+				if wear then
+					itemstack:add_wear(wear)
+				end
+
 			end
 			minetest.sound_play({name="default_grass_footstep", gain=1}, {pos = pointed_thing.above}, true)
 			local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
@@ -405,7 +366,14 @@ local function make_stripped_trunk(itemstack, placer, pointed_thing)
     if pointed_thing.type ~= "node" then return end
 
     local node = minetest.get_node(pointed_thing.under)
-    local noddef = minetest.registered_nodes[minetest.get_node(pointed_thing.under).name]
+    local node_name = minetest.get_node(pointed_thing.under).name
+
+    local noddef = minetest.registered_nodes[node_name]
+
+    if not noddef then
+        minetest.log("warning", "Trying to right click with an axe the unregistered node: " .. tostring(node_name))
+        return
+    end
 
     if not placer:get_player_control().sneak and noddef.on_rightclick then
         return minetest.item_place(itemstack, placer, pointed_thing)
@@ -423,7 +391,9 @@ local function make_stripped_trunk(itemstack, placer, pointed_thing)
 			-- Add wear (as if digging a axey node)
 			local toolname = itemstack:get_name()
 			local wear = mcl_autogroup.get_wear(toolname, "axey")
-			itemstack:add_wear(wear)
+			if wear then
+				itemstack:add_wear(wear)
+			end
 		end
 	end
     return itemstack

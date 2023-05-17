@@ -179,7 +179,8 @@ function mcl_raids.spawn_raid(event)
 						l.raidmob = true
 						event.health_max = event.health_max + l.health
 						table.insert(event.mobs,mob)
-						mcl_mobs:gopath(l,pos)
+						--minetest.log("action", "[mcl_raids] Here we go. Raid time")
+						l:gopath(pos)
 					end
 				end
 			end
@@ -217,7 +218,7 @@ function mcl_raids.find_villager(pos)
 end
 
 function mcl_raids.find_bed(pos)
-	return minetest.find_node_near(pos,128,{"mcl_beds:bed_red_bottom"})
+	return minetest.find_node_near(pos,32,{"mcl_beds:bed_red_bottom"})
 end
 
 function mcl_raids.find_village(pos)
@@ -239,7 +240,7 @@ end
 local function start_firework_rocket(pos)
 	local p = get_point_on_circle(pos,math.random(32,64),32)
 	local n = minetest.get_node(p)
-	local l = minetest.get_natural_light(pos,0.5)
+	local l = mcl_util.get_natural_light(pos,0.5)
 	if n.name ~= "air" or l <= minetest.LIGHT_MAX then return end
 	local o = minetest.add_entity(p,"mcl_bows:rocket_entity")
 	o:get_luaentity()._harmless = true
@@ -292,11 +293,13 @@ mcl_events.register_event("raid",{
 	exclusive_to_area = 128,
 	enable_bossbar = true,
 	cond_start  = function(self)
+		--minetest.log("Cond start raid")
 		local r = {}
 		for _,p in pairs(minetest.get_connected_players()) do
 			if mcl_potions.player_has_effect(p,"bad_omen") then
 				local raid_pos = mcl_raids.find_village(p:get_pos())
 				if raid_pos then
+					--minetest.log("We have a raid position. Start raid")
 					table.insert(r,{ player = p:get_player_name(), pos = raid_pos })
 				end
 			end

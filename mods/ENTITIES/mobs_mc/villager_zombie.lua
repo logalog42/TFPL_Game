@@ -25,7 +25,7 @@ local professions = {
 	nitwit = "mobs_mc_villager.png",
 }
 
-mcl_mobs:register_mob("mobs_mc:villager_zombie", {
+mcl_mobs.register_mob("mobs_mc:villager_zombie", {
 	description = S("Zombie Villager"),
 	type = "monster",
 	spawn_class = "hostile",
@@ -55,7 +55,7 @@ mcl_mobs:register_mob("mobs_mc:villager_zombie", {
 	damage = 3,
 	reach = 2,
 	walk_velocity = 1.2,
-	run_velocity = 2.4,
+	run_velocity = 1.8,
 	attack_type = "dogfight",
 	group_attack = true,
 	drops = {
@@ -109,6 +109,7 @@ mcl_mobs:register_mob("mobs_mc:villager_zombie", {
 				clicker:set_wielded_item(wielditem)
 				self._curing = math.random(3 * 60, 5 * 60)
 				self.shaking = true
+				self.can_despawn = false
 			end
 		end
 	end,
@@ -231,4 +232,4 @@ mcl_vars.mg_overworld_max)
 --mcl_mobs:spawn_specific("mobs_mc:villager_zombie", "overworld", "ground", 0, 7, 30, 60000, 4, mcl_vars.mg_overworld_min, mcl_vars.mg_overworld_max)
 
 -- spawn eggs
-mcl_mobs:register_egg("mobs_mc:villager_zombie", S("Zombie Villager"), "#563d33", "#799c66", 0)
+mcl_mobs.register_egg("mobs_mc:villager_zombie", S("Zombie Villager"), "#563d33", "#799c66", 0)

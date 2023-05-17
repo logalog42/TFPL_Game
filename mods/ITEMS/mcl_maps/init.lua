@@ -24,13 +24,15 @@ minetest.mkdir(map_textures_path)
 
 local function load_json_file(name)
 	local file = assert(io.open(modpath .. "/" .. name .. ".json", "r"))
-	local data = minetest.parse_json(file:read())
+	local data = minetest.parse_json(file:read("*all"))
 	file:close()
 	return data
 end
 
 local texture_colors = load_json_file("colors")
-local palettes = load_json_file("palettes")
+local palettes_grass = load_json_file("palettes_grass")
+local palettes_foliage = load_json_file("palettes_foliage")
+local palettes_water = load_json_file("palettes_water")
 
 local color_cache = {}
 
@@ -92,8 +94,14 @@ function mcl_maps.create_map(pos)
 								if texture then
 									texture = texture:match("([^=^%^]-([^.]+))$"):split("^")[1]
 								end
-								if def.palette then
-									local palette = palettes[texture]
+								if def.palette == "mcl_core_palette_grass.png" then
+									local palette = palettes_grass[texture]
+									color = palette and { palette = palette }
+								elseif def.palette == "mcl_core_palette_foliage.png" then
+									local palette = palettes_foliage[texture]
+									color = palette and { palette = palette }
+								elseif def.palette == "mcl_core_palette_water.png" then
+									local palette = palettes_water[texture]
 									color = palette and { palette = palette }
 								else
 									color = texture_colors[texture]
@@ -238,7 +246,6 @@ filled_wield_def.wield_scale = { x = 1, y = 1, z = 1 }
 filled_wield_def.paramtype = "light"
 filled_wield_def.drawtype = "mesh"
 filled_wield_def.node_placement_prediction = ""
-filled_wield_def.range = minetest.registered_items[""].range
 filled_wield_def.on_place = mcl_util.call_on_rightclick
 filled_wield_def._mcl_wieldview_item = "mcl_maps:filled_map"
 
@@ -271,6 +278,10 @@ end
 
 local old_add_item = minetest.add_item
 function minetest.add_item(pos, stack)
+	if not pos then
+		minetest.log("warning", "Trying to add item with missing pos: " .. tostring(stack))
+		return
+	end
 	stack = ItemStack(stack)
 	if get_item_group(stack:get_name(), "filled_map") > 0 then
 		stack:set_name("mcl_maps:filled_map")

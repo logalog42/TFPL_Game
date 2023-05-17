@@ -39,13 +39,7 @@ local function seagrass_on_place(itemstack, placer, pointed_thing)
 		return itemstack
 	end
 
-	if minetest.is_protected(pos_under, player_name) or
-			minetest.is_protected(pos_above, player_name) then
-		minetest.log("action", player_name
-			.. " tried to place " .. itemstack:get_name()
-			.. " at protected position "
-			.. minetest.pos_to_string(pos_under))
-		minetest.record_protection_violation(pos_under, player_name)
+	if mcl_util.check_area_protection(pos_under, pos_above, placer) then
 		return itemstack
 	end
 
@@ -82,8 +76,8 @@ minetest.register_craftitem("mcl_ocean:seagrass", {
 	description = S("Seagrass"),
 	_tt_help = S("Grows in water on dirt, sand, gravel"),
 	_doc_items_create_entry = false,
-	inventory_image = "mcl_ocean_seagrass.png^[verticalframe:12:0",
-	wield_image = "mcl_ocean_seagrass.png^[verticalframe:12:0",
+	inventory_image = "mcl_ocean_seagrass_item.png",
+	wield_image = "mcl_ocean_seagrass_item.png",
 	on_place = seagrass_on_place,
 	groups = {deco_block = 1, compostability = 30},
 })
@@ -106,7 +100,7 @@ for s=1, #surfaces do
 		doc_longdesc = S("Seagrass grows inside water on top of dirt, sand or gravel.")
 		desc = S("Seagrass")
 		doc_create = true
-		doc_img = "mcl_ocean_seagrass.png^[verticalframe:12:0"
+		doc_img = "mcl_ocean_seagrass_item.png"
 	else
 		doc_create = false
 	end
@@ -118,7 +112,7 @@ for s=1, #surfaces do
 		drawtype = "plantlike_rooted",
 		paramtype = "light",
 		paramtype2 = "meshoptions",
-		place_param2 = 3,
+		param2 = 3,
 		tiles = def.tiles,
 		special_tiles = {
 			{
@@ -126,8 +120,8 @@ for s=1, #surfaces do
 			animation = {type="vertical_frames", aspect_w=16, aspect_h=16, length=1.0},
 			}
 		},
-		inventory_image = "("..def.tiles[1]..")^(mcl_ocean_seagrass.png^[verticalframe:12:0)",
-		wield_image = "mcl_ocean_seagrass.png^[verticalframe:12:0",
+		inventory_image = "mcl_ocean_seagrass_item.png",
+		wield_image = "mcl_ocean_seagrass_item.png",
 		selection_box = {
 			type = "fixed",
 			fixed = {
@@ -155,3 +149,28 @@ end
 if mod_doc then
 	doc.add_entry_alias("nodes", "mcl_ocean:seagrass_dirt", "craftitems", "mcl_ocean:seagrass")
 end
+
+minetest.register_lbm({
+	label = "Fix incorrect seagrass",
+	name = "mcl_ocean:fix_incorrect_seagrass",
+	nodenames = {"group:seagrass"},
+	run_at_every_load = false,
+	action = function(pos, node)
+		if node.param2 ~= 3 then
+			node.param2 = 3
+			minetest.set_node(pos, node)
+		end
+	end
+})
+
+minetest.register_on_generated(function(minp, maxp, blockseed)
+	local seagrass = minetest.find_nodes_in_area(minp, maxp, {"group:seagrass"})
+	for _, sgpos in pairs(seagrass) do
+		local sgnode = minetest.get_node(sgpos)
+		if sgnode.param2 ~= 3 then
+			sgnode.param2 = 3
+			minetest.set_node(sgpos, sgnode)
+		end
+	end
+end
+)

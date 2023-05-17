@@ -9,10 +9,10 @@ for i=1, 7 do
 		selbox = { -0.5, -0.5, -0.5, 0.5, -5/16, 0.5 }
 	elseif i < 5 then
 		texture = "mcl_farming_potatoes_stage_1.png"
-		selbox = { -0.5, -0.5, -0.5, 0.5, -2/16, 0.5 }
+		selbox = { -0.5, -0.5, -0.5, 0.5, -4/16, 0.5 }
 	else
 		texture = "mcl_farming_potatoes_stage_2.png"
-		selbox = { -0.5, -0.5, -0.5, 0.5, 2/16, 0.5 }
+		selbox = { -0.5, -0.5, -0.5, 0.5, -3/16, 0.5 }
 	end
 
 	local create, name, longdesc
@@ -77,7 +77,7 @@ minetest.register_node("mcl_farming:potato", {
 	selection_box = {
 		type = "fixed",
 		fixed = {
-			{ -0.5, -0.5, -0.5, 0.5, 1/16, 0.5 }
+			{ -0.5, -0.5, -0.5, 0.5, -1/16, 0.5 }
 		}
 	},
 	groups = {dig_immediate=3, not_in_creative_inventory=1,plant=1,attached_node=1,dig_by_water=1,destroy_by_lava_flow=1,dig_by_piston=1},
@@ -95,14 +95,7 @@ minetest.register_craftitem("mcl_farming:potato_item", {
 	_mcl_saturation = 0.6,
 	stack_max = 64,
 	on_secondary_use = minetest.item_eat(1),
-	on_place = function(itemstack, placer, pointed_thing)
-		local new = mcl_farming:place_seed(itemstack, placer, pointed_thing, "mcl_farming:potato_1")
-		if new then
-			return new
-		else
-			return minetest.do_item_eat(1, nil, itemstack, placer, pointed_thing)
-		end
-	end,
+	on_place = mcl_farming:get_seed_or_eat_callback("mcl_farming:potato_1", 1),
 })
 
 minetest.register_craftitem("mcl_farming:potato_item_baked", {

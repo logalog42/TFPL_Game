@@ -9,6 +9,9 @@ for i=0, 3 do
 	if i > 0 then
 		groups.sweet_berry_thorny = 1
 	end
+	local drop_berries = (i >= 2)
+	local berries_to_drop = drop_berries and {i - 1, i} or nil
+
 	minetest.register_node(node_name, {
 		drawtype = "plantlike",
 		tiles = {texture},
@@ -24,7 +27,14 @@ for i=0, 3 do
 		liquid_renewable = false,
 		liquid_range = 0,
 		walkable = false,
-		drop = (i>=2) and ("mcl_farming:sweet_berry" .. (i==3 and " 3" or "")) or "",
+		-- Dont even create a table if no berries are dropped.
+		drop = not drop_berries and "" or {
+			max_items = 1,
+			items = {
+				{ items = {"mcl_farming:sweet_berry " .. berries_to_drop[1] }, rarity = 2 },
+				{ items = {"mcl_farming:sweet_berry " .. berries_to_drop[2] } }
+			}
+		},
 		selection_box = {
 			type = "fixed",
 			fixed = {-6 / 16, -0.5, -6 / 16, 6 / 16, (-0.30 + (i*0.25)), 6 / 16},
@@ -36,22 +46,27 @@ for i=0, 3 do
 		_mcl_blast_resistance = 0,
 		_mcl_hardness = 0,
 		on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
-			if mcl_dye and clicker:get_wielded_item():get_name() == "mcl_dye:white" then
+			local pn = clicker:get_player_name()
+			if clicker:is_player() and minetest.is_protected(pos, pn) then
+				minetest.record_protection_violation(pos, pn)
+				return itemstack
+			end
+			if 3 ~= i and mcl_dye and
+					clicker:get_wielded_item():get_name() == "mcl_bone_meal:bone_meal" then
 				mcl_dye.apply_bone_meal({under=pos},clicker)
+				if not minetest.is_creative_enabled(pn) then
+					itemstack:take_item()
+				end
 				return
 			end
-			local stage
-			if node.name:find("_2") then
-				stage = 2
-			elseif node.name:find("_3") then
-				stage = 3
-			end
-			if stage then
-				for i=1,math.random(stage) do
-					minetest.add_item(pos,"mcl_farming:sweet_berry")
+
+			if drop_berries then
+				for j=1, berries_to_drop[math.random(2)] do
+					minetest.add_item(pos, "mcl_farming:sweet_berry")
 				end
-				minetest.swap_node(pos,{name = "mcl_farming:sweet_berry_bush_" .. stage - 1 })
+				minetest.swap_node(pos, {name = "mcl_farming:sweet_berry_bush_1"})
 			end
+			return itemstack
 		end,
 	})
 	minetest.register_alias("mcl_sweet_berry:sweet_berry_bush_" .. i, node_name)
@@ -64,8 +79,16 @@ minetest.register_craftitem("mcl_farming:sweet_berry", {
 	groups = { food = 2, eatable = 1, compostability=30 },
 	on_secondary_use = minetest.item_eat(1),
 	on_place = function(itemstack, placer, pointed_thing)
-		if pointed_thing.type == "node" and table.indexof(planton,minetest.get_node(pointed_thing.under).name) ~= -1 and minetest.get_node(pointed_thing.above).name == "air" then
-			minetest.set_node(pointed_thing.above,{name="mcl_farming:sweet_berry_bush_0"})
+		local pn = placer:get_player_name()
+		if placer:is_player() and minetest.is_protected(pointed_thing.above, pn or "") then
+			minetest.record_protection_violation(pointed_thing.above, pn)
+			return itemstack
+		end
+		if pointed_thing.type == "node" and
+				table.indexof(planton, minetest.get_node(pointed_thing.under).name) ~= -1 and
+				pointed_thing.above.y > pointed_thing.under.y and
+				minetest.get_node(pointed_thing.above).name == "air" then
+			minetest.set_node(pointed_thing.above, {name="mcl_farming:sweet_berry_bush_0"})
 			if not minetest.is_creative_enabled(placer:get_player_name()) then
 				itemstack:take_item()
 			end
@@ -84,7 +107,7 @@ local function berry_damage_check(obj)
 	if not p then return end
 	if not minetest.find_node_near(p,0.4,{"group:sweet_berry_thorny"},true) then return end
 	local v = obj:get_velocity()
-	if v.x < 0.1 and v.y < 0.1 and v.z < 0.1 then return end
+	if math.abs(v.x) < 0.1 and math.abs(v.y) < 0.1 and math.abs(v.z) < 0.1 then return end
 
 	mcl_util.deal_damage(obj, 0.5, {type = "sweet_berry"})
 end

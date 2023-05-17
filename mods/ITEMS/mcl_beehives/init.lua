@@ -48,16 +48,25 @@ local dig_hive = function(pos, node, oldmetadata, digger)
 	local beenest = string.find(node.name, "mcl_beehives:bee_nest")
 	local silk_touch = mcl_enchanting.has_enchantment(wield_item, "silk_touch")
 	local is_creative = minetest.is_creative_enabled(digger:get_player_name())
+	local inv = digger:get_inventory()
 
 	if beehive then
-		minetest.add_item(pos, "mcl_beehives:beehive")
-		if not silk_touch and not is_creative then mcl_util.deal_damage(digger, 10) end
+		if not is_creative then
+			minetest.add_item(pos, "mcl_beehives:beehive")
+			if not silk_touch then mcl_util.deal_damage(digger, 10) end
+		elseif is_creative and inv:room_for_item("main", "mcl_beehives:beehive") and not inv:contains_item("main", "mcl_beehives:beehive") then
+			inv:add_item("main", "mcl_beehives:beehive")
+		end
 	elseif beenest then
-		if silk_touch or is_creative then
-			minetest.add_item(pos, "mcl_beehives:bee_nest")
-			awards.unlock(digger:get_player_name(), "mcl:total_beelocation")
-		else
-			mcl_util.deal_damage(digger, 10)
+		if not is_creative then
+			if silk_touch then
+				minetest.add_item(pos, "mcl_beehives:bee_nest")
+				awards.unlock(digger:get_player_name(), "mcl:total_beelocation")
+			else
+				mcl_util.deal_damage(digger, 10)
+			end
+		elseif is_creative and inv:room_for_item("main", "mcl_beehives:bee_nest") and not inv:contains_item("main", "mcl_beehives:bee_nest") then
+			inv:add_item("main", "mcl_beehives:bee_nest")
 		end
 	end
 end
@@ -73,6 +82,7 @@ minetest.register_node("mcl_beehives:beehive", {
 	},
 	paramtype2 = "facedir",
 	groups = { axey = 1, deco_block = 1, flammable = 0, fire_flammability = 5, material_wood = 1, beehive = 1 },
+	sounds = mcl_sounds.node_sound_wood_defaults(),
 	_mcl_blast_resistance = 0.6,
 	_mcl_hardness = 0.6,
 	drop = "",
@@ -90,6 +100,7 @@ for l = 1, 4 do
 		},
 		paramtype2 = "facedir",
 		groups = { axey = 1, deco_block = 1, flammable = 0, fire_flammability = 5, material_wood = 1, not_in_creative_inventory = 1, beehive = 1 },
+		sounds = mcl_sounds.node_sound_wood_defaults(),
 		_mcl_blast_resistance = 0.6,
 		_mcl_hardness = 0.6,
 		drop = "",
@@ -107,6 +118,7 @@ minetest.register_node("mcl_beehives:beehive_5", {
 	},
 	paramtype2 = "facedir",
 	groups = { axey = 1, deco_block = 1, flammable = 0, fire_flammability = 5, material_wood = 1, not_in_creative_inventory = 1, beehive = 1 },
+	sounds = mcl_sounds.node_sound_wood_defaults(),
 	_mcl_blast_resistance = 0.6,
 	_mcl_hardness = 0.6,
 	on_rightclick = honey_harvest,
@@ -125,6 +137,7 @@ minetest.register_node("mcl_beehives:bee_nest", {
 	},
 	paramtype2 = "facedir",
 	groups = { axey = 1, deco_block = 1, flammable = 0, fire_flammability = 30, bee_nest = 1 },
+	sounds = mcl_sounds.node_sound_wood_defaults(),
 	_mcl_blast_resistance = 0.3,
 	_mcl_hardness = 0.3,
 	drop = "",
@@ -142,6 +155,7 @@ for i = 1, 4 do
 		},
 		paramtype2 = "facedir",
 		groups = { axey = 1, deco_block = 1, flammable = 0, fire_flammability = 30, not_in_creative_inventory = 1, bee_nest = 1 },
+		sounds = mcl_sounds.node_sound_wood_defaults(),
 		_mcl_blast_resistance = 0.3,
 		_mcl_hardness = 0.3,
 		drop = "",
@@ -159,6 +173,7 @@ minetest.register_node("mcl_beehives:bee_nest_5", {
 	},
 	paramtype2 = "facedir",
 	groups = { axey = 1, deco_block = 1, flammable = 0, fire_flammability = 30, not_in_creative_inventory = 1, bee_nest = 1 },
+	sounds = mcl_sounds.node_sound_wood_defaults(),
 	_mcl_blast_resistance = 0.3,
 	_mcl_hardness = 0.3,
 	on_rightclick = honey_harvest,

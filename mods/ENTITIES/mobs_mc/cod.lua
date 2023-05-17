@@ -40,14 +40,14 @@ local cod = {
 	xp_max = 3,
 	armor = 100,
 	rotate = 180,
-	spawn_in_group_min = 3,
-	spawn_in_group = 8,
+	spawn_in_group_min = 2, -- was 3
+	spawn_in_group = 4, -- was 8 nerfed until we can cap them properly locally. this is a group size, not a per spawn attempt
 	tilt_swim = true,
 	collisionbox = {-0.3, 0.0, -0.3, 0.3, 0.79, 0.3},
 	visual = "mesh",
 	mesh = "extra_mobs_cod.b3d",
 	textures = {
-		{"extra_mobs_cod.png"}
+		{"mobs_mc_cod.png"}
 	},
 	sounds = {
 	},
@@ -64,7 +64,7 @@ local cod = {
 		chance = 1,
 		min = 1,
 		max = 1,},
-		{name = "mcl_dye:white",
+		{name = "mcl_bone_meal:bone_meal",
 		chance = 20,
 		min = 1,
 		max = 1,},
@@ -111,7 +111,7 @@ local cod = {
 	end
 }
 
-mcl_mobs:register_mob("mobs_mc:cod", cod)
+mcl_mobs.register_mob("mobs_mc:cod", cod)
 
 
 --spawning TODO: in schools
@@ -272,4 +272,4 @@ water-16,
 water+1)
 
 --spawn egg
-mcl_mobs:register_egg("mobs_mc:cod", S("Cod"), "#c1a76a", "#e5c48b", 0)
+mcl_mobs.register_egg("mobs_mc:cod", S("Cod"), "#c1a76a", "#e5c48b", 0)

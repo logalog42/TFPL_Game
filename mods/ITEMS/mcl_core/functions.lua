@@ -405,6 +405,7 @@ function mcl_core.generate_tree(pos, tree_type, options)
 	elseif tree_type == BIRCH_TREE_ID then
 		mcl_core.generate_birch_tree(pos)
 	end
+	mcl_core.update_sapling_foliage_colors(pos)
 end
 
 -- Classic oak in v6 style
@@ -801,23 +802,21 @@ end
 
 local grass_spread_randomizer = PseudoRandom(minetest.get_mapgen_setting("seed"))
 
-function mcl_core.get_grass_palette_index(pos)
-	local biome_data = minetest.get_biome_data(pos)
-	local index = 0
-	if biome_data then
-		local biome = biome_data.biome
-		local biome_name = minetest.get_biome_name(biome)
-		local reg_biome = minetest.registered_biomes[biome_name]
-		if reg_biome then
-			index = reg_biome._mcl_palette_index
-		end
-	end
-	return index
+-- Return appropriate grass block node for pos
+function mcl_core.get_grass_block_type(pos, requested_grass_block_name)
+	local grass_palette_index = mcl_util.get_palette_indexes_from_pos(pos).grass_palette_index
+	local grass_block_name = requested_grass_block_name or minetest.get_node(pos).name
+	return {name = grass_block_name, param2 = grass_palette_index}
 end
 
--- Return appropriate grass block node for pos
-function mcl_core.get_grass_block_type(pos)
-	return {name = "mcl_core:dirt_with_grass", param2 = mcl_core.get_grass_palette_index(pos)}
+-- Return appropriate foliage block node for pos
+function mcl_core.get_foliage_block_type(pos)
+	return {name = minetest.get_node(pos).name, param2 = mcl_util.get_palette_indexes_from_pos(pos).foliage_palette_index}
+end
+
+-- Return appropriate water block node for pos
+function mcl_core.get_water_block_type(pos)
+	return {name = minetest.get_node(pos).name, param2 = mcl_util.get_palette_indexes_from_pos(pos).water_palette_index}
 end
 
 ------------------------------
@@ -831,17 +830,18 @@ minetest.register_abm({
 	chance = 20,
 	catch_up = false,
 	action = function(pos)
-		if pos == nil then
-			return
-		end
+		if pos == nil then return end
+
 		local above = {x=pos.x, y=pos.y+1, z=pos.z}
 		local abovenode = minetest.get_node(above)
 		if minetest.get_item_group(abovenode.name, "liquid") ~= 0 or minetest.get_item_group(abovenode.name, "opaque") == 1 then
 			-- Never grow directly below liquids or opaque blocks
 			return
 		end
+
 		local light_self = minetest.get_node_light(above)
 		if not light_self then return end
+
 		--[[ Try to find a spreading dirt-type block (e.g. grass block or mycelium)
 		within a 3×5×3 area, with the source block being on the 2nd-topmost layer. ]]
 		local nodes = minetest.find_nodes_in_area({x=pos.x-1, y=pos.y-1, z=pos.z-1}, {x=pos.x+1, y=pos.y+3, z=pos.z+1}, "group:spreading_dirt_type")
@@ -860,9 +860,10 @@ minetest.register_abm({
 
 		if light_self >= 4 and light_source >= 9 then
 			-- All checks passed! Let's spread the grass/mycelium!
+
 			local n2 = minetest.get_node(p2)
 			if minetest.get_item_group(n2.name, "grass_block") ~= 0 then
-				n2 = mcl_core.get_grass_block_type(pos)
+				n2 = mcl_core.get_grass_block_type(pos, "mcl_core:dirt_with_grass")
 			end
 			minetest.set_node(pos, {name=n2.name})
 
@@ -927,28 +928,17 @@ minetest.register_lbm({
 	label = "Replace legacy dry grass",
 	name = "mcl_core:replace_legacy_dry_grass_0_65_0",
 	nodenames = {"mcl_core:dirt_with_dry_grass", "mcl_core:dirt_with_dry_grass_snow"},
+	run_at_every_load = true,
 	action = function(pos, node)
-		local biome_data = minetest.get_biome_data(pos)
-		if biome_data then
-			local biome = biome_data.biome
-			local biome_name = minetest.get_biome_name(biome)
-			local reg_biome = minetest.registered_biomes[biome_name]
-			if reg_biome then
-				if node.name == "mcl_core:dirt_with_dry_grass_snow" then
-					node.name = "mcl_core:dirt_with_grass_snow"
-				else
-					node.name = "mcl_core:dirt_with_grass"
-				end
-				node.param2 = reg_biome._mcl_palette_index
-				-- Fall back to savanna palette index
-				if not node.param2 then
-					node.param2 = SAVANNA_INDEX
-				end
-				minetest.set_node(pos, node)
-				return
-			end
+		if node.name == "mcl_core:dirt_with_dry_grass_snow" then
+			node.name = "mcl_core:dirt_with_grass_snow"
+		else
+			node.name = "mcl_core:dirt_with_grass"
 		end
-		node.param2 = SAVANNA_INDEX
+		-- use savanna palette index to simulate dry grass.
+		if not node.param2 then
+			node.param2 = SAVANNA_INDEX
+		end
 		minetest.set_node(pos, node)
 		return
 	end,
@@ -1083,6 +1073,16 @@ local grow_jungle_tree = sapling_grow_action(JUNGLE_TREE_ID, 1, true, true, "mcl
 local grow_acacia = sapling_grow_action(ACACIA_TREE_ID, 2, true, false)
 local grow_spruce = sapling_grow_action(SPRUCE_TREE_ID, 1, true, true, "mcl_core:sprucesapling")
 local grow_birch = sapling_grow_action(BIRCH_TREE_ID, 1, true, false)
+
+function mcl_core.update_sapling_foliage_colors(pos)
+	local pos1, pos2 = vector.offset(pos, -8, 0, -8), vector.offset(pos, 8, 30, 8)
+	local fnode
+	local foliage = minetest.find_nodes_in_area(pos1, pos2, {"group:foliage_palette", "group:foliage_palette_wallmounted"})
+	for _, fpos in pairs(foliage) do
+		fnode = minetest.get_node(fpos)
+		minetest.set_node(fpos, fnode)
+	end
+end
 
 -- Attempts to grow the sapling at the specified position
 -- pos: Position
@@ -1367,108 +1367,46 @@ function mcl_core.supports_vines(nodename)
 end
 
 -- Leaf Decay
-
--- To enable leaf decay for a node, add it to the "leafdecay" group.
 --
--- The rating of the group determines how far from a node in the group "tree"
--- the node can be without decaying.
+-- Whenever a tree trunk node is removed, all `group:leaves` nodes in a radius
+-- of 6 blocks are checked from the trunk node's `after_destruct` handler.
+-- Any such nodes within that radius that has no trunk node present within a
+-- distance of 6 blocks is replaced with a `group:orphan_leaves` node.
 --
--- If param2 of the node is ~= 0, the node will always be preserved. Thus, if
--- the player places a node of that kind, you will want to set param2=1 or so.
---
-
-mcl_core.leafdecay_trunk_cache = {}
-mcl_core.leafdecay_enable_cache = true
--- Spread the load of finding trunks
-mcl_core.leafdecay_trunk_find_allow_accumulator = 0
-
-minetest.register_globalstep(function(dtime)
-	--local finds_per_second = 5000
-	mcl_core.leafdecay_trunk_find_allow_accumulator = math.floor(dtime * 5000)
-end)
-
+-- The `group:orphan_leaves` nodes are gradually decayed in this ABM.
 minetest.register_abm({
 	label = "Leaf decay",
-	nodenames = {"group:leafdecay"},
-	neighbors = {"air", "group:liquid"},
-	-- A low interval and a high inverse chance spreads the load
-	interval = 2,
-	chance = 5,
+	nodenames = {"group:orphan_leaves"},
+	interval = 5,
+	chance = 10,
+		action = function(pos, node)
+		-- Spawn item entities for any of the leaf's drops
+		local itemstacks = minetest.get_node_drops(node.name)
+		for _, itemname in pairs(itemstacks) do
+			local p_drop = vector.offset(pos, math.random() - 0.5, math.random() - 0.5, math.random() - 0.5)
+			minetest.add_item(p_drop, itemname)
+		end
+		-- Remove the decayed node
+		minetest.remove_node(pos)
+		leafdecay_particles(pos, node)
+		minetest.check_for_falling(pos)
 
-	action = function(p0, node, _, _)
-		local do_preserve = false
-		local d = minetest.registered_nodes[node.name].groups.leafdecay
-		if not d or d == 0 then
-			return
-		end
-		local n0 = minetest.get_node(p0)
-		if n0.param2 ~= 0 then
-			-- Prevent leafdecay for player-placed leaves.
-			-- param2 is set to 1 after it was placed by the player
-			return
-		end
-		local p0_hash = nil
-		if mcl_core.leafdecay_enable_cache then
-			p0_hash = minetest.hash_node_position(p0)
-			local trunkp = mcl_core.leafdecay_trunk_cache[p0_hash]
-			if trunkp then
-				local n = minetest.get_node(trunkp)
-				local reg = minetest.registered_nodes[n.name]
-				-- Assume ignore is a trunk, to make the thing work at the border of the active area
-				if n.name == "ignore" or (reg and reg.groups.tree and reg.groups.tree ~= 0) then
-					return
-				end
-				-- Cache is invalid
-				table.remove(mcl_core.leafdecay_trunk_cache, p0_hash)
-			end
-		end
-		if mcl_core.leafdecay_trunk_find_allow_accumulator <= 0 then
-			return
-		end
-		mcl_core.leafdecay_trunk_find_allow_accumulator =
-				mcl_core.leafdecay_trunk_find_allow_accumulator - 1
-		-- Assume ignore is a trunk, to make the thing work at the border of the active area
-		local p1 = minetest.find_node_near(p0, d, {"ignore", "group:tree"})
-		if p1 then
-			do_preserve = true
-			if mcl_core.leafdecay_enable_cache then
-				-- Cache the trunk
-				mcl_core.leafdecay_trunk_cache[p0_hash] = p1
-			end
-		end
-		if not do_preserve then
-			-- Drop stuff other than the node itself
-			local itemstacks = minetest.get_node_drops(n0.name)
-			for _, itemname in pairs(itemstacks) do
-				local p_drop = {
-					x = p0.x - 0.5 + math.random(),
-					y = p0.y - 0.5 + math.random(),
-					z = p0.z - 0.5 + math.random(),
-				}
-				minetest.add_item(p_drop, itemname)
-			end
-			-- Remove node
-			minetest.remove_node(p0)
-			leafdecay_particles(p0, n0)
-			minetest.check_for_falling(p0)
-
-			-- Kill depending vines immediately to skip the vines decay delay
-			local surround = {
-				{ x = 0, y = 0, z = -1 },
-				{ x = 0, y = 0, z = 1 },
-				{ x = -1, y = 0, z = 0 },
-				{ x = 1, y = 0, z = 0 },
-				{ x = 0, y = -1, z = -1 },
-			}
-			for s=1, #surround do
-				local spos = vector.add(p0, surround[s])
-				local maybe_vine = minetest.get_node(spos)
-				--local surround_inverse = vector.multiply(surround[s], -1)
-				if maybe_vine.name == "mcl_core:vine" and (not mcl_core.check_vines_supported(spos, maybe_vine)) then
-					minetest.remove_node(spos)
-					vinedecay_particles(spos, maybe_vine)
-					minetest.check_for_falling(spos)
-				end
+		-- Kill depending vines immediately to skip the vines decay delay
+		local surround = {
+			{ x = 0, y = 0, z = -1 },
+			{ x = 0, y = 0, z = 1 },
+			{ x = -1, y = 0, z = 0 },
+			{ x = 1, y = 0, z = 0 },
+			{ x = 0, y = -1, z = -1 },
+		}
+		for s=1, #surround do
+			local spos = vector.add(pos, surround[s])
+			local maybe_vine = minetest.get_node(spos)
+			--local surround_inverse = vector.multiply(surround[s], -1)
+			if maybe_vine.name == "mcl_core:vine" and (not mcl_core.check_vines_supported(spos, maybe_vine)) then
+				minetest.remove_node(spos)
+				vinedecay_particles(spos, maybe_vine)
+				minetest.check_for_falling(spos)
 			end
 		end
 	end
@@ -1577,7 +1515,7 @@ end
 --
 -- The snowable nodes also MUST have _mcl_snowed defined to contain the name
 -- of the snowed node.
-function mcl_core.register_snowed_node(itemstring_snowed, itemstring_clear, tiles, sounds, clear_colorization, desc)
+function mcl_core.register_snowed_node(itemstring_snowed, itemstring_clear, tiles, sounds, clear_colorization, desc, grass_palette)
 	local def = table.copy(minetest.registered_nodes[itemstring_clear])
 	local create_doc_alias
 	if def.description then
@@ -1591,6 +1529,7 @@ function mcl_core.register_snowed_node(itemstring_snowed, itemstring_clear, tile
 	def._doc_items_usagehelp = nil
 	def._doc_items_create_entry = false
 	def.groups.not_in_creative_inventory = 1
+	def.groups.grass_palette = grass_palette
 	if def.groups.grass_block == 1 then
 		def.groups.grass_block_no_snow = nil
 		def.groups.grass_block_snow = 1
@@ -1621,7 +1560,7 @@ function mcl_core.register_snowed_node(itemstring_snowed, itemstring_clear, tile
 	end
 	if not sounds then
 		def.sounds = mcl_sounds.node_sound_dirt_defaults({
-			footstep = { name = "pedology_snow_soft_footstep", gain = 0.5 }
+			footstep = mcl_sounds.node_sound_snow_defaults().footstep,
 		})
 	else
 		def.sounds = sounds

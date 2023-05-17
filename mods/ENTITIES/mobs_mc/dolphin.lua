@@ -42,8 +42,8 @@ local dolphin = {
 	walk_chance = 100,
 	breath_max = 120,
 	rotate = 180,
-	spawn_in_group_min = 3,
-	spawn_in_group = 5,
+	spawn_in_group_min = 2, -- was 3
+	spawn_in_group = 4, -- was 4. nerfed until water has own cap, and it represents max pack size rather than per spawn attempt
 	tilt_swim = true,
 	collisionbox = {-0.3, 0.0, -0.3, 0.3, 0.79, 0.3},
 	visual = "mesh",
@@ -92,7 +92,7 @@ local dolphin = {
 	end,
 }
 
-mcl_mobs:register_mob("mobs_mc:dolphin", dolphin)
+mcl_mobs.register_mob("mobs_mc:dolphin", dolphin)
 
 
 --spawning TO DO: in schools
@@ -250,4 +250,4 @@ water-16,
 water+1)
 
 --spawn egg
-mcl_mobs:register_egg("mobs_mc:dolphin", S("Dolphin"), "#223b4d", "#f9f9f9", 0)
+mcl_mobs.register_egg("mobs_mc:dolphin", S("Dolphin"), "#223b4d", "#f9f9f9", 0)

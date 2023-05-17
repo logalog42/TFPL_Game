@@ -1,33 +1,68 @@
 local mods_loaded = false
 local NIGHT_VISION_RATIO = 0.45
 
-local water_color = "#0b4880"
+local MINIMUM_LIGHT_LEVEL = 0.2
 
-function mcl_weather.set_sky_box_clear(player)
+local water_color = "#3F76E4"
+
+local mg_name = minetest.get_mapgen_setting("mg_name")
+
+function mcl_weather.set_sky_box_clear(player, sky, fog)
 	local pos = player:get_pos()
 	if minetest.get_item_group(minetest.get_node(vector.new(pos.x,pos.y+1.5,pos.z)).name, "water") ~= 0 then return end
+	local sc = {
+			day_sky = "#7BA4FF",
+			day_horizon = "#C0D8FF",
+			dawn_sky = "#7BA4FF",
+			dawn_horizon = "#C0D8FF",
+			night_sky = "#000000",
+			night_horizon = "#4A6790",
+			indoors = "#C0D8FF",
+			fog_sun_tint = "#ff5f33",
+			fog_moon_tint = nil,
+			fog_tint_type = "custom"
+		}
+	if sky then
+		sc.day_sky = sky
+		sc.dawn_sky = sky
+	end
+	if fog then
+		sc.day_horizon = fog
+		sc.dawn_horizon = fog
+	end
 	player:set_sky({
 		type = "regular",
-		sky_color = {
-			day_sky = "#92B9FF",
-			day_horizon = "#B4D0FF",
-			dawn_sky = "#B4BAFA",
-			dawn_horizon = "#BAC1F0",
-			night_sky = "#006AFF",
-			night_horizon = "#4090FF",
-		},
+		sky_color = sc,
 		clouds = true,
 	})
 end
 
 function mcl_weather.set_sky_color(player, def)
 	local pos = player:get_pos()
-	if minetest.get_item_group(minetest.get_node(vector.new(pos.x,pos.y+1.5,pos.z)).name, "water") ~= 0 then return end
+	if minetest.get_item_group(minetest.get_node(vector.offset(pos, 0, 1.5, 0)).name, "water") ~= 0 then return end
 	player:set_sky({
 		type = def.type,
 		sky_color = def.sky_color,
 		clouds = def.clouds,
 	})
+end
+
+-- Function to work out light modifier at different times
+-- Noon is brightest, midnight is darkest, 0600 and 18000 is in the middle of this
+local function get_light_modifier(time)
+	-- 0.1 = 0.2
+	-- 0.4 = 0.8
+	-- 0.5 = 1
+	-- 0.6 = 0.8
+	-- 0.9 = 0.2
+
+	local light_multiplier =  time * 2
+	if time > 0.5 then
+		light_multiplier = 2 * (1 - time)
+	else
+		light_multiplier = time / 0.5
+	end
+	return light_multiplier
 end
 
 mcl_weather.skycolor = {
@@ -110,7 +145,14 @@ mcl_weather.skycolor = {
 			local pos = player:get_pos()
 			local dim = mcl_worlds.pos_to_dimension(pos)
 			local has_weather = (mcl_worlds.has_weather(pos) and (mcl_weather.state == "snow" or mcl_weather.state =="rain" or mcl_weather.state == "thunder") and mcl_weather.has_snow(pos)) or ((mcl_weather.state =="rain" or mcl_weather.state == "thunder") and mcl_weather.has_rain(pos))
-			if minetest.get_item_group(minetest.get_node(vector.new(pos.x,pos.y+1.5,pos.z)).name, "water") ~= 0 then
+			local checkname = minetest.get_node(vector.new(pos.x,pos.y+1.5,pos.z)).name
+			if minetest.get_item_group(checkname, "water") ~= 0 then
+				local biome_index = minetest.get_biome_data(player:get_pos()).biome
+				local biome_name = minetest.get_biome_name(biome_index)
+				local biome = minetest.registered_biomes[biome_name]
+				if biome then water_color = biome._mcl_waterfogcolor end
+				if not biome then water_color = "#3F76E4" end
+				if checkname == "mclx_core:river_water_source" or checkname == "mclx_core:river_water_flowing" then water_color = "#0084FF" end
 				player:set_sky({ type = "regular",
 					sky_color = {
 						day_sky = water_color,
@@ -119,14 +161,32 @@ mcl_weather.skycolor = {
 						dawn_horizon = water_color,
 						night_sky = water_color,
 						night_horizon = water_color,
+						indoors = water_color,
+						fog_sun_tint = water_color,
+						fog_moon_tint = water_color,
+						fog_tint_type = "custom"
 					},
-					clouds = true,
+					clouds = false,
 				})
 			end
 			if dim == "overworld" then
+				local biomesky
+				local biomefog
+				if mg_name ~= "v6" and mg_name ~= "singlenode" then
+					local biome_index = minetest.get_biome_data(player:get_pos()).biome
+					local biome_name = minetest.get_biome_name(biome_index)
+					local biome = minetest.registered_biomes[biome_name]
+					if biome then
+						--minetest.log("action", string.format("Biome found for number: %s in biome: %s", tostring(biome_index), biome_name))
+						biomesky = biome._mcl_skycolor
+						biomefog = biome._mcl_fogcolor
+					else
+						--minetest.log("action", string.format("No biome for number: %s in biome: %s", tostring(biome_index), biome_name))
+					end
+				end
 				if (mcl_weather.state == "none") then
 					-- Clear weather
-					mcl_weather.set_sky_box_clear(player)
+					mcl_weather.set_sky_box_clear(player,biomesky,biomefog)
 					player:set_sun({visible = true, sunrise_visible = true})
 					player:set_moon({visible = true})
 					player:set_stars({visible = true})
@@ -171,25 +231,36 @@ mcl_weather.skycolor = {
 					player:set_moon({visible = false})
 					player:set_stars({visible = false})
 
-					local lf = mcl_weather.get_current_light_factor()
+					local light_factor = mcl_weather.get_current_light_factor()
 					if mcl_weather.skycolor.current_layer_name() == "lightning" then
 						mcl_weather.skycolor.override_day_night_ratio(player, 1)
-					elseif lf then
-						local w = minetest.get_timeofday()
-						local light = (w * (lf*2))
-						if light > 1 then
-							light = 1 - (light - 1)
-						end
-						light = (light * lf) + 0.15
-						mcl_weather.skycolor.override_day_night_ratio(player, light)
+					elseif light_factor then
+						local time = minetest.get_timeofday()
+						local light_multiplier = get_light_modifier(time)
+						local new_light = math.max(light_factor * light_multiplier, MINIMUM_LIGHT_LEVEL)
+						mcl_weather.skycolor.override_day_night_ratio(player, new_light)
 					else
 						mcl_weather.skycolor.override_day_night_ratio(player, nil)
 					end
 				end
 			elseif dim == "end" then
+				local biomesky = "#000000"
+				local biomefog = "#A080A0"
+				if mg_name ~= "v6" and mg_name ~= "singlenode" then
+					local biome_index = minetest.get_biome_data(player:get_pos()).biome
+					local biome_name = minetest.get_biome_name(biome_index)
+					local biome = minetest.registered_biomes[biome_name]
+					if biome then
+						--minetest.log("action", string.format("Biome found for number: %s in biome: %s", tostring(biome_index), biome_name))
+						biomesky = biome._mcl_skycolor
+						biomefog = biome._mcl_fogcolor -- The End biomes seemingly don't use the fog colour, despite having this value according to the wiki. The sky colour is seemingly used for both sky and fog?
+					else
+						--minetest.log("action", string.format("No biome for number: %s in biome: %s", tostring(biome_index), biome_name))
+					end
+				end
 				local t = "mcl_playerplus_end_sky.png"
 				player:set_sky({ type = "skybox",
-					base_color = "#000000",
+					base_color = biomesky,
 					textures = {t,t,t,t,t,t},
 					clouds = false,
 				})
@@ -198,24 +269,33 @@ mcl_weather.skycolor = {
 				player:set_stars({visible = false})
 				mcl_weather.skycolor.override_day_night_ratio(player, 0.5)
 			elseif dim == "nether" then
-				local nether_sky = {
-					Nether = "#300808",
-					BasaltDelta = "#685F70",
-					SoulsandValley = "#1B4745",
-					CrimsonForest = "#330303",
-					WarpedForest = "#1A051A"
-				}
-				local biometint = nether_sky[minetest.get_biome_name(minetest.get_biome_data(player:get_pos()).biome)]
-
+				local biomesky = "#6EB1FF"
+				local biomefog = "#330808"
+				if mg_name ~= "v6" and mg_name ~= "singlenode" then
+					local biome_index = minetest.get_biome_data(player:get_pos()).biome
+					local biome_name = minetest.get_biome_name(biome_index)
+					local biome = minetest.registered_biomes[biome_name]
+					if biome then
+						--minetest.log("action", string.format("Biome found for number: %s in biome: %s", tostring(biome_index), biome_name))
+						biomesky = biome._mcl_skycolor -- The Nether biomes seemingly don't use the sky colour, despite having this value according to the wiki. The fog colour is used for both sky and fog.
+						biomefog = biome._mcl_fogcolor
+					else
+						--minetest.log("action", string.format("No biome for number: %s in biome: %s", tostring(biome_index), biome_name))
+					end
+				end
 				mcl_weather.set_sky_color(player, {
 					type = "regular",
 					sky_color = {
-						day_sky = "#300808",
-						day_horizon = biometint,
-						dawn_sky = "#300808",
-						dawn_horizon = biometint,
-						night_sky = "#300808",
-						night_horizon = biometint,
+						day_sky = biomefog,
+						day_horizon = biomefog,
+						dawn_sky = biomefog,
+						dawn_horizon = biomefog,
+						night_sky = biomefog,
+						night_horizon = biomefog,
+						indoors = biomefog,
+						fog_sun_tint = biomefog,
+						fog_moon_tint = biomefog,
+						fog_tint_type = "custom"
 					},
 					clouds = false,
 				})

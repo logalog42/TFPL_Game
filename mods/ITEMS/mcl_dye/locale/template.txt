@@ -1,18 +1,18 @@
 # textdomain: mcl_dye
-Bone Meal=
+White Dye=
 Light Grey Dye=
 Grey Dye=
-Ink Sac=
+Black Dye=
 Purple Dye=
-Lapis Lazuli=
+Blue Dye=
 Light Blue Dye=
 Cyan Dye=
-Cactus Green=
+Green Dye=
 Lime Dye=
-Dandelion Yellow=
-Cocoa Beans=
+Yellow Dye=
+Brown Dye=
 Orange Dye=
-Rose Red=
+Red Dye=
 Magenta Dye=
 Pink Dye=
 This item is a dye which is used for dyeing and crafting.=

@@ -3,8 +3,6 @@ mcl_playerplus = {
 	is_pressing_jump = {},
 }
 
-local hud_water = {}
-
 local get_connected_players = minetest.get_connected_players
 local dir_to_yaw = minetest.dir_to_yaw
 local get_item_group = minetest.get_item_group
@@ -24,28 +22,22 @@ local math = math
 -- Internal player state
 local mcl_playerplus_internal = {}
 
+-- Could occassionally hit about 4.6 but servers and high power machines struggle to keep up with this.
+-- Until mapgen can keep up, it's best to limit for server performance etc.
+local elytra_vars = {
+	slowdown_mult = 0.0, -- amount of vel to take per sec
+	fall_speed = 0.2, -- amount of vel to fall down per sec
+	speedup_mult = 2, -- amount of speed to add based on look dir
+	max_speed = tonumber(minetest.settings:get("mcl_elytra_max_speed")) or 4.0, -- was 6 max amount to multiply against look direction when flying
+	pitch_penalty = 1.3, -- if pitching up, slow down at this rate as a multiplier
+	rocket_speed = tonumber(minetest.settings:get("mcl_elytra_rocket_speed")) or 3.5, --was 5.5
+}
+
+--minetest.log("action", "elytra_vars.max_speed: " .. dump(elytra_vars.max_speed))
+--minetest.log("action", "elytra_vars.rocket_speed: " .. dump(elytra_vars.rocket_speed))
+
 local time = 0
 local look_pitch = 0
-
-
-local function calculate_water_depth(pos)
-	for i=1, 50 do
-		if get_item_group(minetest.get_node(vector.new(pos.x,pos.y+i,pos.z)).name, "water") == 0 then
-			return i
-		end
-	end
-	return 50
-end
-
-local function remove_water_hud(player)
-	if hud_water[player] then
-		mcl_weather.skycolor.update_sky_color()
-		for i=1, #hud_water[player] do
-			player:hud_remove(hud_water[player][i])
-		end
-		hud_water[player] = nil
-	end
-end
 
 local function player_collision(player)
 
@@ -158,14 +150,7 @@ local function clamp(num, min, max)
 	return math.min(max, math.max(num, min))
 end
 
-local elytra_vars = {
-	slowdown_mult = 0.0, -- amount of vel to take per sec
-	fall_speed = 0.2, -- amount of vel to fall down per sec
-	speedup_mult = 2, -- amount of speed to add based on look dir
-	max_speed = 6, -- max amount to multiply against look direction when flying
-	pitch_penalty = 1.3, -- if pitching up, slow down at this rate as a multiplier
-	rocket_speed = 5.5,
-}
+
 
 local player_props_elytra = {
 	collisionbox = { -0.35, 0, -0.35, 0.35, 0.8, 0.35 },
@@ -417,23 +402,13 @@ minetest.register_globalstep(function(dtime)
 			set_bone_pos(player,"Body_Control", nil, vector.new(0, -player_vel_yaw + yaw, 0))
 		end
 
-		if get_item_group(mcl_playerinfo[name].node_head, "water") ~= 0 then
-			if not hud_water[player] or hud_water[player] and calculate_water_depth(player:get_pos()) ~= #hud_water[player] then
-				remove_water_hud(player)
-				hud_water[player] = {}
-				for i=1, calculate_water_depth(player:get_pos()) do
-					table.insert(hud_water[player], player:hud_add({
-						hud_elem_type = "image",
-						text = "mcl_playerplus_water.png",
-						position = {x = 0.5, y = 0.5},
-						scale = {x = 32, y = 16},
-						offset = {x = 0, y = 0},
-						z_index = -1002,
-					}))
-				end
-			end
-		else
-			remove_water_hud(player)
+		local underwater
+		if get_item_group(mcl_playerinfo[name].node_head, "water") ~= 0 and underwater ~= true then
+			mcl_weather.skycolor.update_sky_color()
+			local underwater = true
+		elseif get_item_group(mcl_playerinfo[name].node_head, "water") == 0 and underwater == true then
+			mcl_weather.skycolor.update_sky_color()
+			local underwater = false
 		end
 
 		elytra.last_yaw = player:get_look_horizontal()
@@ -627,7 +602,7 @@ minetest.register_globalstep(function(dtime)
 
 		-- Show positions of barriers when player is wielding a barrier
 		local wi = player:get_wielded_item():get_name()
-		if wi == "mcl_core:barrier" or wi == "mcl_core:realm_barrier" then
+		if wi == "mcl_core:barrier" or wi == "mcl_core:realm_barrier" or minetest.get_item_group(wi, "light_block") ~= 0 then
 			local pos = vector.round(player:get_pos())
 			local r = 8
 			local vm = get_voxel_manip()
@@ -642,11 +617,15 @@ minetest.register_globalstep(function(dtime)
 			for z=pos.z-r, pos.z+r do
 				local vi = area:indexp({x=x, y=y, z=z})
 				local nodename = get_name_from_content_id(data[vi])
+				local light_block_group = minetest.get_item_group(nodename, "light_block")
+
 				local tex
 				if nodename == "mcl_core:barrier" then
 					tex = "mcl_core_barrier.png"
 				elseif nodename == "mcl_core:realm_barrier" then
 					tex = "mcl_core_barrier.png^[colorize:#FF00FF:127^[transformFX"
+				elseif light_block_group ~= 0 then
+					tex = "mcl_core_light_" .. (light_block_group - 1) .. ".png"
 				end
 				if tex then
 					add_particle({

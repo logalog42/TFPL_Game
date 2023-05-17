@@ -112,7 +112,7 @@ function mesecon.register_button(basename, description, texture, recipeitem, sou
 	if push_by_arrow then
 		tt = tt .. "\n" .. S("Pushable by arrow")
 	end
-	minetest.register_node("mesecons_button:button_"..basename.."_off", {
+	minetest.register_node(":mesecons_button:button_"..basename.."_off", {
 		drawtype = "nodebox",
 		tiles = {texture},
 		wield_image = "mesecons_button_wield_mask.png^"..texture.."^mesecons_button_wield_mask.png^[makealpha:255,126,126",
@@ -147,7 +147,7 @@ function mesecon.register_button(basename, description, texture, recipeitem, sou
 		_mcl_hardness = 0.5,
 	})
 
-	minetest.register_node("mesecons_button:button_"..basename.."_on", {
+	minetest.register_node(":mesecons_button:button_"..basename.."_on", {
 		drawtype = "nodebox",
 		tiles = {texture},
 		wield_image = "mesecons_button_wield_mask.png^"..texture.."^mesecons_button_wield_mask.png^[makealpha:255,126,126",
@@ -216,6 +216,18 @@ mesecon.register_button(
 	S("A stone button is a redstone component made out of stone which can be pushed to provide redstone power. When pushed, it powers adjacent redstone components for 1 second."),
 	"mesecons_button_push")
 
+mesecon.register_button(
+	"polished_blackstone",
+	S("Polished Blackstone Button"),
+	"mcl_blackstone_polished.png",
+	"mcl_blackstone:blackstone_polished",
+	mcl_sounds.node_sound_stone_defaults(),
+	{material_stone=1,handy=1,pickaxey=1},
+	1,
+	false,
+	S("A polished blackstone button is a redstone component made out of polished blackstone which can be pushed to provide redstone power. When pushed, it powers adjacent redstone components for 1 second."),
+	"mesecons_button_push")
+
 local woods = {
 	{ "wood", "mcl_core:wood", "default_wood.png", S("Oak Button") },
 	{ "acaciawood", "mcl_core:acaciawood", "default_acacia_wood.png", S("Acacia Button") },
@@ -225,8 +237,8 @@ local woods = {
 	{ "junglewood", "mcl_core:junglewood", "default_junglewood.png", S("Jungle Button") },
 
 	{ "mangrove_wood", "mcl_mangrove:mangrove_wood", "mcl_mangrove_planks.png", S("Mangrove Button") },
-	{ "crimson_hyphae_wood", "mcl_crimson:crimson_hyphae_wood", "crimson_hyphae_wood.png", S("Crimson Button") },
-	{ "warped_hyphae_wood", "mcl_crimson:warped_hyphae_wood", "warped_hyphae_wood.png", S("Warped Button") },
+	{ "crimson_hyphae_wood", "mcl_crimson:crimson_hyphae_wood", "mcl_crimson_crimson_hyphae_wood.png", S("Crimson Button") },
+	{ "warped_hyphae_wood", "mcl_crimson:warped_hyphae_wood", "mcl_crimson_warped_hyphae_wood.png", S("Warped Button") },
 }
 
 for w=1, #woods do

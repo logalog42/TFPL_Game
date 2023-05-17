@@ -122,7 +122,7 @@ local professions = {
 			},
 			{
 			{ E1, { "mcl_farming:carrot_item_gold", 3, 10 } },
-			{ E1, { "mcl_potions:speckled_melon", 4, 1 } },
+			{ E1, { "mcl_potions:speckled_melon", 1, 4 } },
 			TRADE_V6_BIRCH_SAPLING,
 			TRADE_V6_DARK_OAK_SAPLING,
 			TRADE_V6_ACACIA_SAPLING,
@@ -172,6 +172,7 @@ local professions = {
 			{ { "mcl_mobitems:string", 15, 20 }, E1 },
 			{ E1, { "mcl_bows:arrow", 8, 12 } },
 			{ { "mcl_core:gravel", 10, 10, "mcl_core:emerald", 1, 1 }, { "mcl_core:flint", 6, 10 } },
+			{ { "mcl_core:stick", 32, 32 }, E1 },
 			},
 			{
 			{ { "mcl_core:flint", 26, 26 }, E1 },
@@ -235,7 +236,7 @@ local professions = {
 	librarian = {
 		name = N("Librarian"),
 		texture = "mobs_mc_villager_librarian.png",
-		jobsite = "mcl_books:bookshelf", --FIXME: lectern
+		jobsite = "mcl_lectern:lectern",
 		trades = {
 			{
 			{ { "mcl_core:paper", 24, 36 }, E1 },
@@ -479,7 +480,7 @@ local professions = {
 			},
 			{
 			{ { "mcl_core:gold_ingot", 3, 3 }, E1 },
-			{ E1, { "mcl_dye:blue", 1, 1 } },
+			{ E1, { "mcl_core:lapis", 1, 1 } },
 			},
 			{
 			{ { "mcl_mobitems:rabbit_foot", 2, 2 }, E1 },
@@ -616,6 +617,13 @@ local function set_textures(self)
 	self.object:set_properties({textures=badge_textures})
 end
 
+-- TODO Pass in self and if nitwit, go to bed later.
+local function is_night()
+	local tod = minetest.get_timeofday()
+	tod = ( tod * 24000 ) % 24000
+	return  tod > 17500 or tod < 6500
+end
+
 function get_activity(tod)
 	-- night hours = tod > 18541 or tod < 5458
 	if not tod then
@@ -625,8 +633,8 @@ function get_activity(tod)
 
 	local lunch_start = 11000
 	local lunch_end = 13500
-	local work_start = 7000
-	local work_end = 16500
+	local work_start = 7500
+	local work_end = 16000
 
 	local activity = nil
 	if weather_mod and mcl_weather.get_weather() == "thunder" then
@@ -634,14 +642,14 @@ function get_activity(tod)
 		activity = SLEEP
 	elseif (tod > work_start and tod < lunch_start) or  (tod > lunch_end and tod < work_end) then
 		activity = WORK
-	elseif mcl_beds.is_night() then
+	elseif is_night() then
 		activity = SLEEP
 	elseif tod > lunch_start and tod < lunch_end then
 		activity = GATHERING
 	else
 		activity = "chill"
 	end
-	mcl_log("Time is " .. tod ..". Activity is: ".. activity)
+	--mcl_log("Time is " .. tod ..". Activity is: ".. activity)
 	return activity
 
 end
@@ -770,7 +778,7 @@ local function check_bed (entity)
 	local n = minetest.get_node(b)
 
 	local is_bed_bottom = string.find(n.name,"_bottom")
-	mcl_log("" .. tostring(is_bed_bottom))
+	--mcl_log("is bed bottom: " .. tostring(is_bed_bottom))
 	if n and not is_bed_bottom then
 		mcl_log("Where did my bed go?!")
 		entity._bed = nil --the stormtroopers have killed uncle owen
@@ -809,7 +817,7 @@ local function go_home(entity, sleep)
 			return
 		end
 
-		mcl_mobs:gopath(entity,b,function(entity,b)
+		entity:gopath(b,function(entity,b)
 			local b = entity._bed
 
 			if not b then
@@ -828,7 +836,7 @@ local function go_home(entity, sleep)
 			else
 				--minetest.log("Need to walk to home")
 			end
-		end)
+		end, true)
 	end
 end
 
@@ -836,6 +844,7 @@ end
 
 local function take_bed (entity)
 	if not entity then return end
+	if not entity:ready_to_path() then return end
 
 	local p = entity.object:get_pos()
 
@@ -845,7 +854,6 @@ local function take_bed (entity)
 		mcl_log("Can we path to bed: "..minetest.pos_to_string(closest_block) )
 		local distance_to_block = vector.distance(p, closest_block)
 		mcl_log("Distance: " .. distance_to_block)
-
 		if distance_to_block < 2 then
 			local m = minetest.get_meta(closest_block)
 			local owner = m:get_string("villager")
@@ -866,7 +874,7 @@ local function take_bed (entity)
 				mcl_log("Set as sleep already..." )
 			end
 		else
-			local gp = mcl_mobs:gopath(entity, closest_block,function(self) end)
+			local gp = entity:gopath(closest_block,function(self) end)
 			if gp then
 				mcl_log("Nice bed. I'll defintely take it as I can path")
 			else
@@ -1035,7 +1043,7 @@ local function look_for_job(self, requested_jobsites)
 	if closest_block then
 		mcl_log("It's a free job for me (" .. minetest.pos_to_string(p) .. ")! I might be interested: ".. minetest.pos_to_string(closest_block) )
 
-		local gp = mcl_mobs:gopath(self, closest_block,function(self)
+		local gp = self:gopath(closest_block,function(self)
 			mcl_log("Arrived at block callback")
 			if self and self.state == "stand" then
 				self.order = WORK
@@ -1060,9 +1068,9 @@ local function look_for_job(self, requested_jobsites)
 end
 
 
-
 local function get_a_job(self)
 	if self.order == WORK then self.order = nil end
+	if not self:ready_to_path() then return end
 
 	mcl_log("I'm unemployed or lost my job block and have traded. Can I get a job?")
 
@@ -1136,68 +1144,86 @@ local function validate_jobsite(self)
 end
 
 local function do_work (self)
-	--debug_trades(self)
-	if self.child then
-		mcl_log("A child so don't send to work")
+
+	if not self or self.child then
+		mcl_log("No self, or a child so don't work")
 		return
 	end
+
 	--mcl_log("Time for work")
+	local jobsite_node = retrieve_my_jobsite (self)
 
-	-- Don't try if looking_for_work, or gowp possibly
-	if validate_jobsite(self) then
-		--mcl_log("My jobsite is valid. Do i need to travel?")
-
-		local jobsite2 = retrieve_my_jobsite (self)
+	if jobsite_node then
 		local jobsite = self._jobsite
 
-		if self and jobsite2 and self._jobsite then
-			local distance_to_jobsite = vector.distance(self.object:get_pos(),self._jobsite)
-			--mcl_log("Villager: ".. minetest.pos_to_string(self.object:get_pos()) ..  ", jobsite: " .. minetest.pos_to_string(self._jobsite) .. ", distance to jobsite: ".. distance_to_jobsite)
+		local distance_to_jobsite = vector.distance(self.object:get_pos(), jobsite)
+		--mcl_log("Villager: ".. minetest.pos_to_string(self.object:get_pos()) ..  ", jobsite: " .. minetest.pos_to_string(self._jobsite) .. ", distance to jobsite: ".. distance_to_jobsite)
 
-			if distance_to_jobsite < 2 then
-				if self.state ~= PATHFINDING and  self.order ~= WORK then
-					mcl_log("Setting order to work.")
-					self.order = WORK
-					unlock_trades(self)
-				else
-					--mcl_log("Still pathfinding.")
-				end
+		if distance_to_jobsite < 2 then
+			if self.state ~= PATHFINDING and  self.order ~= WORK then
+				mcl_log("Setting order to work.")
+				self.order = WORK
+				unlock_trades(self)
 			else
-				mcl_log("Not at job block. Need to commute.")
-				if self.order == WORK then
-					self.order = nil
-					return
-				end
-				mcl_mobs:gopath(self, jobsite, function(self,jobsite)
-					if not self then
-						--mcl_log("missing self. not good")
-						return false
-					end
-					if not self._jobsite then
-						--mcl_log("Jobsite not valid")
-						return false
-					end
-					if vector.distance(self.object:get_pos(),self._jobsite) < 2 then
-						--mcl_log("Made it to work ok callback!")
-						return true
-					else
-						--mcl_log("Need to walk to work. Not sure we can get here.")
-					end
-				end)
+				--mcl_log("Still pathfinding.")
 			end
+		else
+			mcl_log("Not at job block. Need to commute.")
+			if self.order == WORK then
+				self.order = nil
+				return
+			end
+
+			self:gopath(jobsite, function(self, jobsite)
+				if not self then
+					--mcl_log("missing self. not good")
+					return false
+				end
+				if not self._jobsite then
+					--mcl_log("Jobsite not valid")
+					return false
+				end
+				if vector.distance(self.object:get_pos(),self._jobsite) < 2 then
+					--mcl_log("Made it to work ok callback!")
+					return true
+				else
+					--mcl_log("Need to walk to work. Not sure we can get here.")
+				end
+			end)
 		end
-	elseif self._profession == "unemployed" or has_traded(self) then
-		get_a_job(self)
 	end
+
+end
+
+local below_vec = vector.new(0, -1, 0)
+
+local function get_ground_below_floating_object (float_pos)
+	local pos = float_pos
+	repeat
+		mcl_log("Current pos: " .. minetest.pos_to_string(pos))
+		pos = vector.add(pos, below_vec)
+		local node = minetest.get_node(pos)
+		mcl_log("First non air materials: ".. tostring(node.name))
+	until node.name ~= "air"
+
+	-- If pos is 1 below float_pos, then just return float_pos as there is no air below it
+	if pos.y == float_pos.y - 1 then
+		--mcl_log("pos is only 1 lower than float pos so no air below")
+		return float_pos
+	else
+		--mcl_log("pos is more than 1 lower than float pos so air is below")
+		return pos
+	end
+
+	return pos
 end
 
 local function go_to_town_bell(self)
-	if self.order == GATHERING then
-		mcl_log("Already gathering")
-		return
-	else
-		mcl_log("Current order" .. self.order)
-	end
+	if self.order == GATHERING then return
+	else mcl_log("Current order" .. self.order) end
+
+	if not self:ready_to_path() then return end
+
 	mcl_log("Go to town bell")
 
 	local looking_for_type={}
@@ -1209,8 +1235,9 @@ local function go_to_town_bell(self)
 	--Ideally should check for closest available. It'll make pathing easier.
 	for _,n in pairs(nn) do
 		mcl_log("Found bell")
+		local target_point = get_ground_below_floating_object(n)
 
-		local gp = mcl_mobs:gopath(self,n,function(self)
+		local gp = self:gopath(target_point,function(self)
 			if self then
 				self.order = GATHERING
 				mcl_log("Callback has a self")
@@ -1278,22 +1305,45 @@ local function validate_bed(self)
 end
 
 local function do_activity (self)
-	-- Maybe just check we're pathfinding first?
+
 	if self.following then
 		mcl_log("Following, so do not do activity.")
 		return
 	end
+	if self.state == PATHFINDING then
+		mcl_log("Pathfinding, so do not do activity.")
+		return
+	end
 
-	if not validate_bed(self) and self.state ~= PATHFINDING then
+	local jobsite_valid = false
+
+	if not is_night() then
 		if self.order == SLEEP then self.order = nil end
-		mcl_log("Villager has no bed. Currently at location: "..minetest.pos_to_string(self.object:get_pos()))
-		take_bed (self)
+
+		if not validate_jobsite(self) then
+			--debug_trades(self)
+			if self._profession == "unemployed" or has_traded(self) then
+				get_a_job(self)
+				return
+			end
+		else
+			jobsite_valid = true
+			--mcl_log("My jobsite is valid. Do i need to travel?")
+		end
+	else
+		if self.order == WORK then self.order = nil end
+
+		if not validate_bed(self) then
+			if self.order == SLEEP then self.order = nil end
+			mcl_log("Villager at this location has no bed: " .. minetest.pos_to_string(self.object:get_pos()))
+			take_bed (self)
+		end
 	end
 
 	-- Only check in day or during thunderstorm but wandered_too_far code won't work
 	local wandered_too_far = false
 	if check_bed (self) then
-		wandered_too_far = ( self.state ~= PATHFINDING ) and (vector.distance(self.object:get_pos(),self._bed) > 50 )
+		wandered_too_far = vector.distance(self.object:get_pos(),self._bed) > 50
 	end
 
 	if wandered_too_far  then
@@ -1301,20 +1351,13 @@ local function do_activity (self)
 		go_home(self, false)
 	elseif get_activity() == SLEEP then
 		go_home(self, true)
-	elseif get_activity() == WORK then
+	elseif get_activity() == WORK and jobsite_valid then
 		do_work(self)
 	elseif get_activity() == GATHERING then
 		go_to_town_bell(self)
 	else
 		mcl_log("No order, so remove it.")
 		self.order = nil
-	end
-
-	-- Daytime is work and play time
-	if not mcl_beds.is_night() then
-		if self.order == SLEEP then self.order = nil end
-	else
-		if self.order == WORK then self.order = nil end
 	end
 
 end
@@ -1896,9 +1939,7 @@ end)
 
 --[=======[ MOB REGISTRATION AND SPAWNING ]=======]
 
-local pick_up = { "mcl_farming:bread", "mcl_farming:carrot_item", "mcl_farming:beetroot_item" , "mcl_farming:potato_item" }
-
-mcl_mobs:register_mob("mobs_mc:villager", {
+mcl_mobs.register_mob("mobs_mc:villager", {
 	description = S("Villager"),
 	type = "npc",
 	spawn_class = "passive",
@@ -1942,7 +1983,7 @@ mcl_mobs:register_mob("mobs_mc:villager", {
 		head_shake_start = 131, head_shake_end = 141, head_shake_loop = false,
 		head_nod_start = 121, head_nod_end = 131, head_nod_loop = false,
 	},
-	follow = pick_up,
+	follow = { "mcl_farming:bread", "mcl_farming:carrot_item", "mcl_farming:beetroot_item" , "mcl_farming:potato_item" },
 	nofollow = true,
 	view_range = 16,
 	fear_height = 4,
@@ -1952,7 +1993,7 @@ mcl_mobs:register_mob("mobs_mc:villager", {
 	_id = nil,
 	_profession = "unemployed",
 	look_at_player = true,
-	pick_up = pick_up,
+	pick_up = { "mcl_farming:bread", "mcl_farming:carrot_item", "mcl_farming:beetroot_item" , "mcl_farming:potato_item" },
 	can_open_doors = true,
 	on_pick_up = function(self,itementity)
 		local clicker
@@ -1963,12 +2004,13 @@ mcl_mobs:register_mob("mobs_mc:villager", {
 			end
 		end
 		if clicker and not self.horny then
-			mcl_mobs:feed_tame(self, clicker, 1, true, false, true)
+			self:feed_tame(clicker, 1, true, false, true)
 			it:take_item(1)
 		end
 		return it
 	end,
 	on_rightclick = function(self, clicker)
+		--minetest.log("In villager right click")
 		if self.child or self._profession == "unemployed" or self._profession == "nitwit" then
 			self.order = nil
 			return
@@ -1986,7 +2028,7 @@ mcl_mobs:register_mob("mobs_mc:villager", {
 		end
 		-- Don't do at night. Go to bed? Maybe do_activity needs it's own method
 		if validate_jobsite(self) and not self.order == WORK then
-			--mcl_mobs:gopath(self,self._jobsite,function()
+			--self:gopath(self._jobsite,function()
 			--	minetest.log("sent to jobsite")
 			--end)
 		else
@@ -2157,4 +2199,5 @@ mobs_mc.water_level+1,
 mcl_vars.mg_overworld_max)
 --]]
 -- spawn eggs
-mcl_mobs:register_egg("mobs_mc:villager", S("Villager"), "#563d33", "#bc8b72", 0)
+mcl_mobs:non_spawn_specific("mobs_mc:villager","overworld", 0, minetest.LIGHT_MAX+1)
+mcl_mobs.register_egg("mobs_mc:villager", S("Villager"), "#563d33", "#bc8b72", 0)

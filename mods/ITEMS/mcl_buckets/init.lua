@@ -61,9 +61,8 @@ local function sound_take(itemname, pos)
 end
 
 local function place_liquid(pos, itemstring)
-	local fullness = registered_nodes[itemstring].liquid_range
 	sound_place(itemstring, pos)
-	add_node(pos, {name=itemstring, param2=fullness})
+	set_node(pos, {name=itemstring})
 end
 
 local function give_bucket(new_bucket, itemstack, user)
@@ -139,7 +138,7 @@ local function bucket_get_pointed_thing(user)
 	local start = user:get_pos()
 	start.y = start.y + user:get_properties().eye_height
 	local look_dir = user:get_look_dir()
-	_end = vector.add(start, vector.multiply(look_dir, 5))
+	local _end = vector.add(start, vector.multiply(look_dir, 5))
 
 	local ray = raycast(start, _end, false, true)
 	for pointed_thing in ray do
@@ -172,7 +171,7 @@ local function on_place_bucket(itemstack, user, pointed_thing)
 		local node = get_node(pos)
 		local node_def = registered_nodes[node.name]
 
-		if node_def and node_def.buildable_to or get_item_group(node.name, "cauldron") == 1 then
+		if node_def and node_def.buildable_to or get_item_group(node.name, "cauldron") == 1 or minetest.get_node(pos).name == "mcl_mangrove:mangrove_roots" then
 			local result, take_bucket = get_extra_check(bucket_def.extra_check, pos, user)
 			if result then
 				local node_place = get_node_place(bucket_def.source_place, pos)

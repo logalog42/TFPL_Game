@@ -25,7 +25,7 @@ local salmon = {
 	visual = "mesh",
 	mesh = "extra_mobs_salmon.b3d",
 	textures = {
-		{"extra_mobs_salmon.png"}
+		{"mobs_mc_salmon.png"}
 	},
 	sounds = {
 	},
@@ -42,7 +42,7 @@ local salmon = {
 		chance = 1,
 		min = 1,
 		max = 1,},
-		{name = "mcl_dye:white",
+		{name = "mcl_bone_meal:bone_meal",
 		chance = 20,
 		min = 1,
 		max = 1,},
@@ -67,7 +67,7 @@ local salmon = {
 	end
 }
 
-mcl_mobs:register_mob("mobs_mc:salmon", salmon)
+mcl_mobs.register_mob("mobs_mc:salmon", salmon)
 
 
 --spawning TODO: in schools
@@ -226,4 +226,4 @@ water-16,
 water+1)
 
 --spawn egg
-mcl_mobs:register_egg("mobs_mc:salmon", S("Salmon"), "#a00f10", "#0e8474", 0)
+mcl_mobs.register_egg("mobs_mc:salmon", S("Salmon"), "#a00f10", "#0e8474", 0)

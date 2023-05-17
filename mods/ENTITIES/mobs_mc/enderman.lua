@@ -255,10 +255,11 @@ local psdefs = {{
 	texture = "mcl_portals_particle"..math.random(1, 5)..".png",
 }}
 
-mcl_mobs:register_mob("mobs_mc:enderman", {
+mcl_mobs.register_mob("mobs_mc:enderman", {
 	description = S("Enderman"),
 	type = "monster",
 	spawn_class = "passive",
+	can_despawn = true,
 	passive = true,
 	pathfinding = 1,
 	hp_min = 40,
@@ -344,7 +345,8 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 					self:teleport(nil)
 				end
 			end
-		else return end
+		end
+
 		-- AGRESSIVELY WARP/CHASE PLAYER BEHAVIOUR HERE.
 		if self.state == "attack" then
 			if self.attack then
@@ -357,9 +359,11 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 				end
 			end
 		else --if not attacking try to tp to the dark
-			local light = minetest.get_node_light(enderpos)
-			if light and light > minetest.LIGHT_MAX then
-				self:teleport(nil)
+			if dim == 'overworld' then
+				local light = minetest.get_node_light(enderpos)
+				if light and light > minetest.LIGHT_MAX then
+					self:teleport(nil)
+				end
 			end
 		end
 		-- ARROW / DAYTIME PEOPLE AVOIDANCE BEHAVIOUR HERE.
@@ -386,6 +390,7 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 				end
 			end
 		end
+
 		-- PROVOKED BEHAVIOUR HERE.
 		local enderpos = self.object:get_pos()
 		if self.provoked == "broke_contact" then
@@ -442,6 +447,23 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 				end
 			end
 		end
+
+		-- ATTACK ENDERMITE
+		local enderpos = self.object:get_pos()
+		if math.random(1,140) == 1 then
+			local mobsnear = minetest.get_objects_inside_radius(enderpos, 64)
+			for n=1, #mobsnear do
+				local mob = mobsnear[n]
+				if mob then
+					local entity = mob:get_luaentity()
+					if entity and entity.name == "mobs_mc:endermite" then
+						self.attack = mob
+						self.state = 'attack'
+					end
+				end
+			end
+		end
+
 		-- TAKE AND PLACE STUFF BEHAVIOUR BELOW.
 		if not mobs_griefing then
 			return
@@ -469,6 +491,7 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 					local dug = minetest.get_node_or_nil(take_pos)
 					if dug and dug.name == "air" then
 						self._taken_node = node.name
+						self.can_despawn = false
 						local def = minetest.registered_nodes[self._taken_node]
 						-- Update animation and texture accordingly (adds visibly carried block)
 						local block_type
@@ -497,7 +520,7 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 						self.base_texture = create_enderman_textures(block_type, self._taken_node)
 						self.object:set_properties({ textures = self.base_texture })
 						self.animation = select_enderman_animation("block")
-						mcl_mobs:set_animation(self, self.animation.current)
+						self:set_animation(self.animation.current)
 						if def.sounds and def.sounds.dug then
 							minetest.sound_play(def.sounds.dug, {pos = take_pos, max_hear_distance = 16}, true)
 						end
@@ -519,8 +542,9 @@ mcl_mobs:register_mob("mobs_mc:enderman", {
 				if success then
 					local def = minetest.registered_nodes[self._taken_node]
 					-- Update animation accordingly (removes visible block)
+					self.can_despawn = true
 					self.animation = select_enderman_animation("normal")
-					mcl_mobs:set_animation(self, self.animation.current)
+					self:set_animation(self.animation.current)
 					if def.sounds and def.sounds.place then
 						minetest.sound_play(def.sounds.place, {pos = place_pos, max_hear_distance = 16}, true)
 					end
@@ -832,4 +856,4 @@ mcl_vars.mg_nether_min,
 mcl_vars.mg_nether_max)
 
 -- spawn eggs
-mcl_mobs:register_egg("mobs_mc:enderman", S("Enderman"), "#252525", "#151515", 0)
+mcl_mobs.register_egg("mobs_mc:enderman", S("Enderman"), "#252525", "#151515", 0)

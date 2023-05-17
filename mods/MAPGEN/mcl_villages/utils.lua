@@ -40,22 +40,32 @@ function settlements.find_surface(pos, wait)
 	-- go through nodes an find surface
 	while cnt < cnt_max do
 		-- Check Surface_node and Node above
-		--
-		if settlements.surface_mat[surface_node.name] then
+		if surface_node and settlements.surface_mat[surface_node.name] then
 			local surface_node_plus_1 = get_node({ x=p6.x, y=p6.y+1, z=p6.z})
-			if surface_node_plus_1 and surface_node and
-				(string.find(surface_node_plus_1.name,"air") or
-				string.find(surface_node_plus_1.name,"snow") or
-				string.find(surface_node_plus_1.name,"fern") or
-				string.find(surface_node_plus_1.name,"flower") or
-				string.find(surface_node_plus_1.name,"bush") or
-				string.find(surface_node_plus_1.name,"tree") or
-				string.find(surface_node_plus_1.name,"grass"))
+
+			if surface_node_plus_1 then
+
+				local surface_node_minus_1 = get_node({ x=p6.x, y=p6.y-1, z=p6.z})
+				local is_leaf_below  = minetest.get_item_group(surface_node_minus_1, "leaves") ~= 0 or
+						string.find(surface_node_minus_1.name,"leaves")
+
+				if not is_leaf_below and ((string.find(surface_node_plus_1.name,"air") or
+					string.find(surface_node_plus_1.name,"fern") or
+					string.find(surface_node_plus_1.name,"flower") or
+					string.find(surface_node_plus_1.name,"bush") or
+					string.find(surface_node_plus_1.name,"tree") or
+					string.find(surface_node_plus_1.name,"grass")) or
+					string.find(surface_node_plus_1.name,"snow"))
 				then
-					settlements.debug("find_surface7: " ..surface_node.name.. " " .. surface_node_plus_1.name)
+					settlements.debug("find_surface success: " ..surface_node.name.. " " .. surface_node_plus_1.name)
+					settlements.debug("node below: " .. tostring(surface_node_minus_1.name))
+					settlements.debug("node below leaves group: " .. tostring(minetest.get_item_group(surface_node_minus_1, "leaves")))
 					return p6, surface_node.name
+				else
+					settlements.debug("find_surface2: wrong surface+1")
+				end
 			else
-				settlements.debug("find_surface2: wrong surface+1")
+				settlements.debug("find_surface8: missing node or plus_1")
 			end
 		else
 			settlements.debug("find_surface3: wrong surface "..surface_node.name.." at pos "..minetest.pos_to_string(p6))
@@ -188,6 +198,14 @@ end
 -------------------------------------------------------------------------------
 function settlements.evaluate_heightmap()
 	local heightmap = minetest.get_mapgen_object("heightmap")
+
+	if not heightmap then
+		minetest.log("action", "No heightmap. That should not happen")
+		return max_height_difference + 1
+	end
+
+	--minetest.log("action", "heightmap size: " .. tostring(#heightmap))
+
 	-- max height and min height, initialize with impossible values for easier first time setting
 	local max_y = -50000
 	local min_y = 50000
@@ -195,16 +213,32 @@ function settlements.evaluate_heightmap()
 	local square_start = 1621
 	local square_end = 1661
 	for j = 1 , 40, 1 do
+		if square_start >= #heightmap then
+			--minetest.log("action", "Heightmap size reached. Go no further outside")
+			break
+		end
 		for i = square_start, square_end, 1 do
-			-- skip buggy heightmaps, return high value
-			if heightmap[i] == -31000 or heightmap[i] == 31000 then
-				return max_height_difference + 1
+			--minetest.log("action", "current hm index: " .. tostring(i) .. "current hm entry: " .. tostring(heightmap[i]))
+
+			if i >= #heightmap then
+				--minetest.log("action", "Heightmap size reached. Go no further")
+				break
 			end
-			if heightmap[i] < min_y then
-				min_y = heightmap[i]
-			end
-			if heightmap[i] > max_y then
-				max_y = heightmap[i]
+			local current_hm_entry = heightmap[i]
+			if current_hm_entry then
+				-- skip buggy heightmaps, return high value. Converted mcl5 maps can be -31007
+				if current_hm_entry == -31000 or heightmap[i] == 31000 then
+					--minetest.log("action", "incorrect heighmap values. abandon")
+					return max_height_difference + 1
+				end
+				if current_hm_entry < min_y then
+					min_y = current_hm_entry
+				end
+				if current_hm_entry > max_y then
+					max_y = current_hm_entry
+				end
+			else
+				--minetest.log("action", "Failed to get hm index: " .. tostring(i) .. "and ... " .. tostring(#heightmap))
 			end
 		end
 		-- set next line
@@ -213,10 +247,14 @@ function settlements.evaluate_heightmap()
 	end
 	-- return the difference between highest and lowest pos in chunk
 	local height_diff = max_y - min_y
+
+	--minetest.log("action", "height_diff = " .. tostring(height_diff))
+
 	-- filter buggy heightmaps
 	if height_diff <= 1 then
 		return max_height_difference + 1
 	end
+	--minetest.log("action", "return heigh diff = " .. tostring(height_diff))
 	-- debug info
 	settlements.debug("heightdiff ".. height_diff)
 	return height_diff

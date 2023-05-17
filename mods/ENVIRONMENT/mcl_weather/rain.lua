@@ -27,10 +27,10 @@ local psdef= {
 	time=0,
 	minpos = vector.new(-15,20,-15),
 	maxpos = vector.new(15,25,15),
-	minvel = vector.new(-2,-17,-2),
-	maxvel = vector.new(2,-8,2),
-	minacc = vector.new(0,0,0),
-	maxacc = vector.new(0,-0.5,0),
+	minvel = vector.new(0,-20,0),
+	maxvel = vector.new(0,-15,0),
+	minacc = vector.new(0,-0.8,0),
+	maxacc = vector.new(0,-0.8,0),
 	minexptime = 1,
 	maxexptime = 4,
 	minsize = 4,
@@ -226,7 +226,7 @@ if mcl_weather.allow_abm then
 				}
 				for a=1, #around do
 					local apos = vector.add(pos, around[a])
-					if mcl_weather.is_outdoor(apos) then
+					if mcl_weather.is_outdoor(apos) and mcl_weather.has_rain(apos) then
 						minetest.remove_node(pos)
 						minetest.sound_play("fire_extinguish_flame", {pos = pos, max_hear_distance = 8, gain = 0.1}, true)
 						return
@@ -244,7 +244,7 @@ if mcl_weather.allow_abm then
 		chance = 1,
 		action = function(pos, node, active_object_count, active_object_count_wider)
 			-- Rain is equivalent to a water bottle
-			if mcl_weather.rain.raining and mcl_weather.is_outdoor(pos) then
+			if mcl_weather.rain.raining and mcl_weather.is_outdoor(pos) and mcl_weather.has_rain(pos) then
 				if node.name == "mcl_cauldrons:cauldron" then
 					minetest.set_node(pos, {name="mcl_cauldrons:cauldron_1"})
 				elseif node.name == "mcl_cauldrons:cauldron_1" then
@@ -267,7 +267,7 @@ if mcl_weather.allow_abm then
 		interval = 22.0,
 		chance = 3,
 		action = function(pos, node, active_object_count, active_object_count_wider)
-			if mcl_weather.rain.raining and mcl_weather.is_outdoor(pos) then
+			if mcl_weather.rain.raining and mcl_weather.is_outdoor(pos) and mcl_weather.has_rain(pos) then
 				if node.name == "mcl_farming:soil" then
 					minetest.set_node(pos, {name="mcl_farming:soil_wet"})
 				end

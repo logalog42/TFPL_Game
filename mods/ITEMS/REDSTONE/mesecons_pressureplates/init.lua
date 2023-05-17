@@ -1,6 +1,6 @@
 local S = minetest.get_translator(minetest.get_current_modname())
 
-local PRESSURE_PLATE_INTERVAL = 0.04
+local PRESSURE_PLATE_INTERVAL = 0.25
 
 local pp_box_off = {
 	type = "fixed",
@@ -11,6 +11,16 @@ local pp_box_on = {
 	type = "fixed",
 	fixed = { -7/16, -8/16, -7/16, 7/16, -7.5/16, 7/16 },
 }
+
+local function pp_on_rightclick(pos, node)
+	local basename = minetest.registered_nodes[node.name].pressureplate_basename
+	if node.name == basename .. "_off" then
+		minetest.set_node(pos, { name = basename .. "_on" })
+		mesecon.receptor_on(pos, mesecon.rules.pplate)
+	else
+		minetest.get_meta(pos):set_string("deact_time", "")
+	end
+end
 
 local function pp_on_timer(pos, elapsed)
 	local node = minetest.get_node(pos)
@@ -37,34 +47,80 @@ local function pp_on_timer(pos, elapsed)
 		end
 	end
 
-	local objs = minetest.get_objects_inside_radius(pos, .99)
+	local function obj_touching_plate_pos(obj_ref, plate_pos)
+		local obj_pos = obj_ref:get_pos()
+		local props = obj_ref:get_properties()
+		local parent = obj_ref:get_attach()
+		if props and obj_pos and not parent then
+			local collisionbox = props.collisionbox
+			local physical = props.physical
+			local is_player = obj_ref:is_player()
+			local luaentity = obj_ref:get_luaentity()
+			local is_item = luaentity and luaentity.name == "__builtin:item"
+			if collisionbox and physical or is_player or is_item then
+				local plate_x_min = plate_pos.x - 7 / 16
+				local plate_x_max = plate_pos.x + 7 / 16
+				local plate_z_min = plate_pos.z - 7 / 16
+				local plate_z_max = plate_pos.z + 7 / 16
+				local plate_y_max = plate_pos.y - 7 / 16
 
-	if node.name == basename .. "_on" then
-		local disable
-		if #objs == 0 then
-			disable = true
-		elseif not activated_by.any then
-			disable = true
-			for k, obj in pairs(objs) do
-				if obj_does_activate(obj, activated_by) then
-					disable = false
-					break
+				local obj_x_min = obj_pos.x + collisionbox[1]
+				local obj_x_max = obj_pos.x + collisionbox[4]
+				local obj_z_min = obj_pos.z + collisionbox[3]
+				local obj_z_max = obj_pos.z + collisionbox[6]
+				local obj_y_min = obj_pos.y + collisionbox[2]
+
+				if
+					obj_y_min <= plate_y_max and
+					not (obj_x_min >= plate_x_max) and
+					not (obj_x_max <= plate_x_min) and
+					not (obj_z_min >= plate_z_max) and
+					not (obj_z_max <= plate_z_min)
+				then
+					return true
 				end
 			end
 		end
+		return false
+	end
+
+	local objs = minetest.get_objects_inside_radius(pos, 1)
+
+	if node.name == basename .. "_on" then
+		local disable = true
+		for k, obj in pairs(objs) do
+			if
+				obj_does_activate(obj, activated_by) and
+				obj_touching_plate_pos(obj, pos)
+			then
+				disable = false
+				minetest.get_meta(pos):set_string("deact_time", "")
+				break
+			end
+		end
 		if disable then
-			minetest.set_node(pos, {name = basename .. "_off"})
-			mesecon.receptor_off(pos, mesecon.rules.pplate)
+			local meta = minetest.get_meta(pos)
+			local deact_time = meta:get_float("deact_time")
+			local current_time = minetest.get_us_time()
+			if deact_time == 0 then
+				deact_time = current_time + 1 * 1000 * 1000
+				meta:set_float("deact_time", deact_time)
+			end
+			if deact_time <= current_time then
+				minetest.set_node(pos, { name = basename .. "_off" })
+				mesecon.receptor_off(pos, mesecon.rules.pplate)
+				meta:set_string("deact_time", "")
+			end
 		end
 	elseif node.name == basename .. "_off" then
 		for k, obj in pairs(objs) do
-			local objpos = obj:get_pos()
-			if obj_does_activate(obj, activated_by) then
-				if objpos.y > pos.y-1 and objpos.y < pos.y then
-					minetest.set_node(pos, {name = basename .. "_on"})
-					mesecon.receptor_on(pos, mesecon.rules.pplate)
-					break
-				end
+			if
+				obj_does_activate(obj, activated_by) and
+				obj_touching_plate_pos(obj, pos)
+			then
+				minetest.set_node(pos, { name = basename .. "_on" })
+				mesecon.receptor_on(pos, mesecon.rules.pplate)
+				break
 			end
 		end
 	end
@@ -118,6 +174,7 @@ function mesecon.register_pressure_plate(basename, description, textures_off, te
 		walkable = false,
 		description = description,
 		on_timer = pp_on_timer,
+		on_rightclick = pp_on_rightclick,
 		on_construct = function(pos)
 			minetest.get_node_timer(pos):start(PRESSURE_PLATE_INTERVAL)
 		end,
@@ -166,8 +223,8 @@ local woods = {
 	{ "junglewood", "mcl_core:junglewood", "default_junglewood.png", S("Jungle Pressure Plate") },
 
 	{ "mangrove_wood", "mcl_mangrove:mangrove_wood", "mcl_mangrove_planks.png", S("Mangrove Pressure Plate") },
-	{ "crimson_hyphae_wood", "mcl_crimson:crimson_hyphae_wood", "crimson_hyphae_wood.png", S("Crimson Pressure Plate") },
-	{ "warped_hyphae_wood", "mcl_crimson:warped_hyphae_wood", "warped_hyphae_wood.png", S("Warped Pressure Plate") },
+	{ "crimson_hyphae_wood", "mcl_crimson:crimson_hyphae_wood", "mcl_crimson_crimson_hyphae_wood.png", S("Crimson Pressure Plate") },
+	{ "warped_hyphae_wood", "mcl_crimson:warped_hyphae_wood", "mcl_crimson_warped_hyphae_wood.png", S("Warped Pressure Plate") },
 }
 
 for w=1, #woods do
@@ -204,5 +261,18 @@ mesecon.register_pressure_plate(
 	{pickaxey=1, material_stone=1},
 	{ player = true, mob = true },
 	S("A stone pressure plate is a redstone component which supplies its surrounding blocks with redstone power while a player or mob stands on top of it. It is not triggered by anything else."))
+
+mesecon.register_pressure_plate(
+	"mesecons_pressureplates:pressure_plate_polished_blackstone",
+	S("Polished Blackstone Pressure Plate"),
+	{"mcl_blackstone_polished.png"},
+	{"mcl_blackstone_polished.png"},
+	"mcl_blackstone_polished.png",
+	nil,
+	{{"mcl_blackstone:blackstone_polished", "mcl_blackstone:blackstone_polished"}},
+	mcl_sounds.node_sound_stone_defaults(),
+	{pickaxey=1, material_stone=1},
+	{ player = true, mob = true },
+	S("A polished blackstone pressure plate is a redstone component which supplies its surrounding blocks with redstone power while a player or mob stands on top of it. It is not triggered by anything else."))
 
 
