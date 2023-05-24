@@ -34,12 +34,12 @@ multidimensions.register_dimension=function(name,def,self)
 	def.map.lacunarity = def.map.lacunarity or 1
 	def.map.flags = def.map.flags or "absvalue"
 
-	def.self.stone = def.stone or "default:stone"
-	def.self.dirt = def.dirt or "default:dirt"
-	def.self.grass = def.grass or "default:dirt_with_grass"
+	def.self.stone = def.stone or "mcl_core:stone"
+	def.self.dirt = def.dirt or "mcl_core:dirt"
+	def.self.grass = def.grass or "mcl_core:dirt_with_grass"
 	def.self.air = def.air or "air"
-	def.self.water = def.water or "default:water_source"
-	def.self.sand = def.sand or "default:sand"
+	def.self.water = def.water or "mcl_core:water_source"
+	def.self.sand = def.sand or "mcl_core:sand"
 	def.self.bedrock = def.bedrock or "multidimensions:bedrock"
 
 	def.self.dim_start = def.dim_y
@@ -61,6 +61,7 @@ multidimensions.register_dimension=function(name,def,self)
 		def.self[i] = minetest.registered_items[v] and minetest.get_content_id(v) or def.self[i]
 	end
 
+	--[[
 	for i1,v1 in pairs(table.copy(def)) do
 		if  i1:sub(-5,-1)== "_ores" then
 			for i2,v2 in pairs(v1) do
@@ -85,6 +86,7 @@ multidimensions.register_dimension=function(name,def,self)
 			end
 		end
 	end
+	]]--
 
 	def.teleporter = def.teleporter == nil
 
@@ -100,7 +102,7 @@ multidimensions.register_dimension=function(name,def,self)
 		node.description = node.description or		"Teleport to dimension " .. name
 		node.tiles = node.tiles or			{"default_steel_block.png"}
 		node.groups = node.groups or		{cracky=2,not_in_creative_inventory=multidimensions.craftable_teleporters and 0 or 1}
-		node.sounds = node.sounds or		default.node_sound_wood_defaults()
+		node.sounds = node.sounds or		mcl_sounds.node_sound_wood_defaults()
 		node.after_place_node = function(pos, placer, itemstack)
 			local meta=minetest.get_meta(pos)
 			meta:set_string("owner",placer:get_player_name())
@@ -142,127 +144,148 @@ multidimensions.register_dimension=function(name,def,self)
 	end
 end
 
+-- Set the 3D noise parameters for the terrain.
+
+local np_terrain = {
+	offset = 0,
+	scale = 1,
+	spread = {x = 384, y = 192, z = 384},
+	seed = 5900033,
+	octaves = 5,
+	persist = 0.63,
+	lacunarity = 2.0,
+	--flags = ""
+}
+
+-- Initialize noise object to nil. It will be created once only during the
+-- generation of the first mapchunk, to minimise memory use.
+
+local nobj_terrain = nil
+
+-- Localise noise buffer table outside the loop, to be re-used for all
+-- mapchunks, therefore minimising memory use.
+
+local nvals_terrain = {}
+
+-- Localise data buffer table outside the loop, to be re-used for all
+-- mapchunks, therefore minimising memory use.
+
+local data = {}
+
+-- Detect the biomegen mod if loaded, in order to generate biomes
+-- and decorations
+
+local use_biomegen = false
+if minetest.global_exists("biomegen") then
+	use_biomegen = true
+	biomegen.set_elevation_chill(0.35)
+end
+
+
 minetest.register_on_generated(function(minp, maxp, seed)
 	for i,d in pairs(multidimensions.registered_dimensions) do
-	if minp.y >= d.dim_y and maxp.y <= d.dim_y+d.dim_height then
-		local depth = 18
-		local height = d.dirt_start
-		local ground_limit = d.ground_limit
-		local dirt_depth = d.dirt_depth
-		local water_depth = d.water_depth
-		local lenth = maxp.x-minp.x+1
-		local cindx = 1
-		local map = minetest.get_perlin_map(d.map,{x=lenth,y=lenth,z=lenth}):get_3d_map_flat(minp)
-		local enable_water = d.enable_water
-		local terrain_density = d.terrain_density
-		local flatland = d.flatland
-		local heat = minetest.get_heat(minp)
-		local humidity = minetest.get_humidity(minp)
+		if minp.y >= d.dim_y and maxp.y <= d.dim_y+d.dim_height then
+			local depth = 18
+			local height = d.dirt_start
+			local ground_limit = d.ground_limit
+			local dirt_depth = d.dirt_depth
+			local water_depth = d.water_depth
+			local lenth = maxp.x-minp.x+1
+			local cindx = 1
+			local map = minetest.get_perlin_map(d.map,{x=lenth,y=lenth,z=lenth}):get_3d_map_flat(minp)
+			local enable_water = d.enable_water
+			local terrain_density = d.terrain_density
+			local flatland = d.flatland
+			local heat = minetest.get_heat(minp)
+			local humidity = minetest.get_humidity(minp)
 
-		local miny = d.dim_y
-		local maxy = d.dim_y+d.dim_height
-		local bedrock_depth = d.bedrock_depth
+			local miny = d.dim_y
+			local maxy = d.dim_y+d.dim_height
+			local bedrock_depth = d.bedrock_depth
 
-		local dirt = d.self.dirt
-		local stone =d.self.stone
-		local grass = d.self.grass
-		local air = d.self.air
-		local water = d.self.water
-		local sand = d.self.sand
-		local bedrock = d.self.bedrock
+			local dirt = d.self.dirt
+			local stone =d.self.stone
+			local grass = d.self.grass
+			local air = d.self.air
+			local water = d.self.water
+			local sand = d.self.sand
+			local bedrock = d.self.bedrock
 
-		d.self.heat = heat
-		d.self.humidity = humidity
+			d.self.heat = heat
+			d.self.humidity = humidity
 
-		local vm,min,max = minetest.get_mapgen_object("voxelmanip")
-		local area = VoxelArea:new({MinEdge = min, MaxEdge = max})
-		local data = vm:get_data()
+			local vm,min,max = minetest.get_mapgen_object("voxelmanip")
+			local area = VoxelArea:new({MinEdge = min, MaxEdge = max})
+			local data = vm:get_data()
 
-		for z=minp.z,maxp.z do
-		for y=minp.y,maxp.y do
-			local id=area:index(minp.x,y,z)
-		for x=minp.x,maxp.x do
-			local den = math.abs(map[cindx]) - math.abs(height-y)/(depth*2) or 0
-			if y <= miny+bedrock_depth then
-				data[id] = bedrock
-			elseif enable_water and den < 0.3 and y <= height+d.dirt_depth+1 and y >= height-water_depth  then	
-				data[id] = water
-				if y+1 == height+d.dirt_depth+1 then -- fix water holes
-					data[id+area.ystride] = water
-				else
-					data[id-area.ystride]=sand
-				end
-			elseif y < height then
-				data[id] = stone
-			elseif y >= height and y <= height+dirt_depth then
-				data[id] = dirt
-				data[id+area.ystride]=grass
-			elseif not flatland then
-				if y >= height and y<= ground_limit and den > terrain_density then
+			for z=minp.z,maxp.z do
+			for y=minp.y,maxp.y do
+				local id=area:index(minp.x,y,z)
+			for x=minp.x,maxp.x do
+				local den = math.abs(map[cindx]) - math.abs(height-y)/(depth*2) or 0
+				if y <= miny+bedrock_depth then
+					data[id] = bedrock
+				elseif enable_water and den < 0.3 and y <= height+d.dirt_depth+1 and y >= height-water_depth  then	
+					data[id] = water
+					if y+1 == height+d.dirt_depth+1 then -- fix water holes
+						data[id+area.ystride] = water
+					else
+						data[id-area.ystride]=sand
+					end
+				elseif y < height then
+					data[id] = stone
+				elseif y >= height and y <= height+dirt_depth then
 					data[id] = dirt
 					data[id+area.ystride]=grass
-					data[id-area.ystride]=stone
-					if den > 1 then
-						data[id]=stone
-					end
-				end
-			else
-				data[id] = air
-			end
-
-			if d.on_generate then
-				data = d.on_generate(d.self,data,id,area,x,y,z) or data
-			end
-
-			cindx=cindx+1
-			id=id+1
-		end
-		end
-		end
-
-		for i1,v1 in pairs(data) do
-			local da = data[i1]
-			local typ
-			if da == air and d.ground_ores and data[i1-area.ystride] == grass then
-				typ = "ground"
-			elseif da == grass and d.grass_ores then
-				typ = "grass"
-			elseif da == dirt and d.dirt_ores then
-				typ = "dirt"
-			elseif da == stone and d.stone_ores then
-				typ = "stone"
-			elseif da == air and d.air_ores then
-				typ = "air"
-			elseif da == water and d.water_ores then
-				typ = "water"
-			elseif da == sand and d.sand_ores then
-				typ = "sand"
-			end
-			if typ then
-				for i2,v2 in pairs(d[typ.."_ores"]) do
-					if math.random(1,v2.chance) == 1 and not (v2.min_heat and (heat < v2.min_heat or heat > v2.max_heat)) then
-						if v2.chunk then
-							for x=-v2.chunk,v2.chunk do
-							for y=-v2.chunk,v2.chunk do
-							for z=-v2.chunk,v2.chunk do
-								local id =i1+x+(y*area.ystride)+(z*area.zstride)
-								if da == data[id] then
-									data[id]=i2
-								end
-							end
-							end
-							end
-						else
-							data[i1]=i2
+				elseif not flatland then
+					if y >= height and y<= ground_limit and den > terrain_density then
+						data[id] = dirt
+						data[id+area.ystride]=grass
+						data[id-area.ystride]=stone
+						if den > 1 then
+							data[id]=stone
 						end
 					end
+				else
+					data[id] = air
 				end
+
+				if d.on_generate then
+					data = d.on_generate(d.self,data,id,area,x,y,z) or data
+				end
+
+				cindx=cindx+1
+				id=id+1
 			end
+			end
+			end
+	
+			if use_biomegen then
+				-- Generate biomes in 'data', using biomegen mod
+				biomegen.generate_biomes(data, area, minp, maxp)
+		
+				-- Write content ID data back to the voxelmanip.
+				vm:set_data(data)
+				-- Generate ores using core's function
+				minetest.generate_ores(vm, minp, maxp)
+				-- Generate decorations in VM (needs 'data' for reading)
+				biomegen.place_all_decos(data, area, vm, minp, maxp, seed)
+				-- Update data array to have ores/decorations
+				vm:get_data(data)
+				-- Add biome dust in VM (needs 'data' for reading)
+				biomegen.dust_top_nodes(data, area, vm, minp, maxp)
+			else
+				-- If biomegen is not present, just write content ID data back to the VM.
+				vm:set_data(data)
+			end
+		
+			-- Calculate lighting for what has been created.
+			vm:calc_lighting()
+			-- Write what has been created to the world.
+			vm:write_to_map()
+			-- Liquid nodes were placed so set them flowing.
+			vm:update_liquids()
 		end
-		vm:set_data(data)
-		vm:write_to_map()
-		vm:update_liquids()
-	end
 	end
 end)
 
@@ -274,7 +297,7 @@ minetest.register_node("multidimensions:bedrock", {
 	sunlight_propagates = true,
 	drop = "",
 	diggable = false,
-	sounds = default.node_sound_stone_defaults(),
+	sounds = mcl_sounds.node_sound_stone_defaults(),
 })
 
 minetest.register_node("multidimensions:blocking", {
@@ -319,10 +342,10 @@ end
 
 minetest.register_node("multidimensions:teleporter0", {
 	description = "Teleport to dimension earth",
-	tiles = {"default_steel_block.png","default_steel_block.png","default_mese_block.png^[colorize:#1e6600cc"},
+	tiles = {"default_steel_block.png","default_steel_block.png","redstone_redstone_block.png^[colorize:#1e6600cc"},
 	groups = {choppy=2,oddly_breakable_by_hand=1},
 	is_ground_content = false,
-	sounds = default.node_sound_wood_defaults(),
+	sounds = mcl_sounds.node_sound_wood_defaults(),
 	after_place_node = function(pos, placer, itemstack)
 		local meta=minetest.get_meta(pos)
 		meta:set_string("owner",placer:get_player_name())

@@ -9,8 +9,8 @@ multidimensions={
 	user={},
 	player_pos={},
 	earth = {
-		above=31000,
-		under=-31000,
+		above=256,
+		under=-62,
 	},
 	craftable_teleporters=true,
 	registered_dimensions={},
