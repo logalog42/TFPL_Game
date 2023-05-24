@@ -12,16 +12,18 @@ multidimensions.register_dimension=function(name,def,self)
 
 	def.dim_y = def.dim_y or			y
 	def.dim_height = def.dim_height or		1000
+	def.deep_y = def.deep_y or		200
 
 	def.bedrock_depth = 50
-	def.dirt_start = def.dim_y +			(def.dirt_start or 501)
-	def.dirt_depth =				(def.dirt_depth or 3)
-	def.ground_limit = def.dim_y +		(def.ground_limit or 530)
-	def.water_depth = def.water_depth or		8
+	def.dirt_start = def.dim_y + (def.dirt_start or 501)
+	def.dirt_depth = (def.dirt_depth or 3)
+	def.ground_limit = def.dim_y + (def.ground_limit or 530)
+	def.water_depth = def.water_depth or 8
 	def.enable_water = def.enable_water == nil
-	def.terrain_density = def.terrain_density or	0.4
-	def.flatland = def.flatland		
+	def.terrain_density = def.terrain_density or 0.4
+	def.flatland = def.flatland
 	def.gravity = def.gravity or			1
+	def.cave_threshold = def.cave_threshold or 0.1 --CBN 22/10/2022 Added cave threshold to dimension definition.
 	--def.sky = def.sky
 
 	def.map = def.map or {}
@@ -33,6 +35,16 @@ multidimensions.register_dimension=function(name,def,self)
 	def.map.persist = def.map.persist or 0.7
 	def.map.lacunarity = def.map.lacunarity or 1
 	def.map.flags = def.map.flags or "absvalue"
+
+	def.cavemap = def.cavemap or {} --CBN 22/10/2022 Added cave noise parameters to dimension definition
+	def.cavemap.offset = def.cavemap.offset or 0
+	def.cavemap.scale = def.cavemap.scale or 1
+	def.cavemap.spread = def.cavemap.spread or {x=60,y=35,z=60}
+	def.cavemap.seeddiff = def.cavemap.seeddiff or 128
+	def.cavemap.octaves = def.cavemap.octaves or 5
+	def.cavemap.persist = def.cavemap.persist or 0.2
+	def.cavemap.lacunarity = def.cavemap.lacunarity or 1.4
+	def.cavemap.flags = def.cavemap.flags or "defaults, absvalue"
 
 	def.self.stone = def.stone or "mcl_core:stone"
 	def.self.dirt = def.dirt or "mcl_core:dirt"
@@ -190,9 +202,11 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local ground_limit = d.ground_limit
 			local dirt_depth = d.dirt_depth
 			local water_depth = d.water_depth
+			local cave_threshold = d.cave_threshold
 			local lenth = maxp.x-minp.x+1
 			local cindx = 1
 			local map = minetest.get_perlin_map(d.map,{x=lenth,y=lenth,z=lenth}):get_3d_map_flat(minp)
+			local cavemap = minetest.get_perlin_map(d.cavemap,{x=lenth,y=lenth,z=lenth}):get_3d_map_flat(minp)
 			local enable_water = d.enable_water
 			local terrain_density = d.terrain_density
 			local flatland = d.flatland
@@ -201,6 +215,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 
 			local miny = d.dim_y
 			local maxy = d.dim_y+d.dim_height
+			local deep_y = d.dim_y + d.deep_y --CBN 22/10/2022 Added a param to change the max height of deep stone ores
 			local bedrock_depth = d.bedrock_depth
 
 			local dirt = d.self.dirt
@@ -219,47 +234,107 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local data = vm:get_data()
 
 			for z=minp.z,maxp.z do
-			for y=minp.y,maxp.y do
-				local id=area:index(minp.x,y,z)
-			for x=minp.x,maxp.x do
-				local den = math.abs(map[cindx]) - math.abs(height-y)/(depth*2) or 0
-				if y <= miny+bedrock_depth then
-					data[id] = bedrock
-				elseif enable_water and den < 0.3 and y <= height+d.dirt_depth+1 and y >= height-water_depth  then	
-					data[id] = water
-					if y+1 == height+d.dirt_depth+1 then -- fix water holes
-						data[id+area.ystride] = water
-					else
-						data[id-area.ystride]=sand
-					end
-				elseif y < height then
-					data[id] = stone
-				elseif y >= height and y <= height+dirt_depth then
-					data[id] = dirt
-					data[id+area.ystride]=grass
-				elseif not flatland then
-					if y >= height and y<= ground_limit and den > terrain_density then
+				for y=minp.y,maxp.y do
+					local id = area:index(minp.x,y,z)
+				for x=minp.x,maxp.x do	
+					local den = (math.abs(map[cindx]) - (math.abs(height-y)/(depth*2))) or 0
+					if y <= miny+bedrock_depth then
+						data[id] = bedrock
+					elseif y < height and y > miny + bedrock_depth then --CBN 22/10/2022 Fill air pockets
+						data[id] = stone
+					elseif enable_water and den <= terrain_density and y <= height+d.dirt_depth+1 and y >= height-water_depth  then	--CBN 22/10/2022 Bind water generation
+						data[id] = water
+						if y+1 == height+d.dirt_depth+1 then -- fix water holes
+							data[id+area.ystride] = water
+						elseif not (data[id-area.ystride * 2] == water) then --CBN 21/10/2022 Fix intermitent horizontal layers of sand and water
+							data[id-area.ystride]=sand
+						end
+					elseif y >= height and y <= height+dirt_depth then
 						data[id] = dirt
 						data[id+area.ystride]=grass
-						data[id-area.ystride]=stone
-						if den > 1 then
-							data[id]=stone
+					elseif not flatland then
+						if y >= height and y<= ground_limit and den >= terrain_density then
+							data[id] = dirt
+							data[id+area.ystride]=grass
+							data[id-area.ystride]=stone
+							if den > 1 then
+								data[id]=stone
+							end
+						end
+					else
+						data[id] = air
+					end
+					
+					if y < ground_limit and y > miny + bedrock_depth and cavemap[cindx] <= cave_threshold then --CBN 22/10/2022 Cave carving
+						data[id] = air
+					end
+					
+					if d.on_generate then
+						data = d.on_generate(d.self,data,id,area,x,y,z) or data
+					end
+		
+					cindx=cindx+1
+					id=id+1
+				end
+				end
+			end
+		
+				local node_y = minp.y
+				
+				for i1,v1 in pairs(data) do
+					if i1%area.ystride == 0 then
+						node_y = node_y + 1
+					end
+					if i1%area.zstride == 0 then --CBN 22/10/2022 data moves in the x axis first, then y axis then z axis, thus when a full zstride has been completed, it goes back to the base of the area
+						node_y = minp.y
+					end
+					local da = data[i1]
+					local typ
+					if da == air and d.ground_ores and data[i1-area.ystride] == grass then
+						typ = "ground"
+					elseif da == grass and d.grass_ores then
+						typ = "grass"
+					elseif da == dirt and d.dirt_ores then
+						typ = "dirt"
+					elseif da == stone and d.deep_stone_ores and node_y <= miny + deep_y then
+						typ = "deep_stone" --CBN 22/10/2022 Added deep stone ores, so that you can set two layers of ores with different chances, to encourage deep mining
+					elseif da == stone and d.stone_ores then
+						typ = "stone"
+					elseif da == air and d.air_ores then
+						typ = "air"
+					elseif da == water and d.water_ores then
+						typ = "water"
+					elseif da == sand and d.sand_ores then
+						typ = "sand"
+					end
+					if typ then
+						for i2,v2 in pairs(d[typ.."_ores"]) do
+							if math.random(1,v2.chance) == 1 and not (v2.min_heat and (heat < v2.min_heat or heat > v2.max_heat)) then
+								if v2.chunk then
+									for x=-v2.chunk,v2.chunk do
+									for y=-v2.chunk,v2.chunk do
+									for z=-v2.chunk,v2.chunk do
+										local id = i1 + x + (y * area.ystride) + (z * area.zstride)
+										if da == data[id] then
+											data[id]=i2
+										end
+									end
+									end
+									end
+								else
+									data[i1]=i2
+								end
+							end
 						end
 					end
-				else
-					data[id] = air
 				end
-
-				if d.on_generate then
-					data = d.on_generate(d.self,data,id,area,x,y,z) or data
-				end
-
-				cindx=cindx+1
-				id=id+1
-			end
-			end
-			end
+				vm:set_data(data)
+				vm:write_to_map()
+				vm:update_liquids()
+		end
+	end
 	
+			--[[
 			if use_biomegen then
 				-- Generate biomes in 'data', using biomegen mod
 				biomegen.generate_biomes(data, area, minp, maxp)
@@ -285,8 +360,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			vm:write_to_map()
 			-- Liquid nodes were placed so set them flowing.
 			vm:update_liquids()
-		end
-	end
+			]]--
 end)
 
 minetest.register_node("multidimensions:bedrock", {

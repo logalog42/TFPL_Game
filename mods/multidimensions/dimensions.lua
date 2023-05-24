@@ -9,21 +9,22 @@ local plants = {
 
 multidimensions.register_dimension("testing",{
 	
-	self = {},		    -- can contain everything, var like dirt="default:dirt" will be remade to dirt=content_id
+	self = {},		    	-- can contain everything, var like dirt="default:dirt" will be remade to dirt=content_id
 	
-	dim_y = 2000,             -- dimension start (don't change if you don't know what you're doing)
+	dim_y = 2000,           -- dimension start (don't change if you don't know what you're doing)
 	dim_height =  1000,	    -- dimension height
 	deep_y = 240,
 	
-	dirt_start = 501,           -- when dirt begins to appear (default is 501)
-	dirt_depth = 3,	    -- dirt depth
-	ground_limit = 530,	    -- ground y limit (ground ends here)
+	dirt_start = 501,       -- when dirt begins to appear (default is 501)
+	dirt_depth = 3,	    	-- dirt depth
+	ground_limit = 530,		-- ground y limit (ground ends here)
+	bedrock_depth = 5,	    -- How many layers of the bottom bedrock should cover
 	water_depth = 8,	    -- depth fron ground and down
-	enable_water = nil,       -- (nil = true)
-	terrain_density = 0.4,    -- or ground density
-	cave_threshold = 0.075,   -- threshold below which caves carved
-	flatland = nil,           -- (nil = false)
-	teleporter = nil,         -- (nil = true) dimension teleporter
+	enable_water = nil,     -- (nil = true)
+	terrain_density = 0.4,  -- or ground density
+	cave_threshold = 0.075, -- threshold below which caves carved
+	flatland = nil,         -- (nil = false)
+	teleporter = nil,       -- (nil = true) dimension teleporter
 	gravity = 1,		    -- (1 = default) dimension gravity
 	
 	map = {
@@ -54,20 +55,6 @@ multidimensions.register_dimension("testing",{
 	{"default:obsidianbrick", "default:steel_ingot", "default:obsidianbrick"},
 	},
 
-	on_generate=function(self,data,id,area,x,y,z)
-	if y <= self.dirt_start+5 then
-		data[id] = self.air
-	else
-		return
-	end
-	return data -- to return changes
-	end,
-	
-	-- data: active generating area (VoxelArea)
-	-- index: data index
-	-- self: {dim_start, dim_end, dim_height, ground_limit, heat, humidity, dirt, stone, grass, air, water, sand, bedrock ... and your inputs
-	--area: (VoxelArea:new({MinEd...)
-	
 	sky = {{r=219, g=168, b=117},"plain",{}}, -- same as:set_sky()
 
 })
