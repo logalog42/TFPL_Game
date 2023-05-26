@@ -26,6 +26,37 @@ multidimensions.register_dimension=function(name,def,self)
 	def.cave_threshold = def.cave_threshold or 0.1 --CBN 22/10/2022 Added cave threshold to dimension definition.
 	--def.sky = def.sky
 
+	def.ridges = def.ridges or {}
+	def.ridges.offset = def.ridges.offset or 0
+	def.ridges.scale = def.ridges.scale or 5
+	def.ridges.spread = def.ridges.spread or {x=40,y=40,z=40}
+	def.ridges.seeddiff = def.ridges.seeddiff or 24
+	def.ridges.octaves = def.ridges.octaves or 6
+	def.ridges.persist = def.ridges.persist or 1
+	def.ridges.lacunarity = def.ridges.lacunarity or 1.6
+	def.ridges.flags = def.ridges.flags or ""
+
+	def.erosion = def.erosion or {}
+	def.erosion.offset = def.erosion.offset or 0
+	def.erosion.scale = def.erosion.scale or 1
+	def.erosion.spread = def.erosion.spread or {x=100,y=18,z=100}
+	def.erosion.seeddiff = def.erosion.seeddiff or 24
+	def.erosion.octaves = def.erosion.octaves or 5
+	def.erosion.persist = def.erosion.persist or 0.7
+	def.erosion.lacunarity = def.erosion.lacunarity or 1
+	def.erosion.flags = def.erosion.flags or "absvalue"
+
+	def.landmass = def.landmass or {}
+	def.landmass.offset = def.landmass.offset or 30
+	def.landmass.scale = def.landmass.scale or 80
+	def.landmass.spread = def.landmass.spread or {x=100,y=90,z=100}
+	def.landmass.seeddiff = def.landmass.seeddiff or 24
+	def.landmass.octaves = def.landmass.octaves or 5
+	def.landmass.persist = def.landmass.persist or 0.7
+	def.landmass.lacunarity = def.landmass.lacunarity or 1
+	def.landmass.flags = def.landmass.flags or ""
+
+	--Basic multidimensions generate settings
 	def.map = def.map or {}
 	def.map.offset = def.map.offset or 0
 	def.map.scale = def.map.scale or 1
@@ -111,10 +142,10 @@ multidimensions.register_dimension=function(name,def,self)
 	multidimensions.registered_dimensions[name]=def
 
 	if def.teleporter then
-		node.description = node.description or		"Teleport to dimension " .. name
-		node.tiles = node.tiles or			{"default_steel_block.png"}
-		node.groups = node.groups or		{cracky=2,not_in_creative_inventory=multidimensions.craftable_teleporters and 0 or 1}
-		node.sounds = node.sounds or		mcl_sounds.node_sound_wood_defaults()
+		node.description = node.description or "Teleport to dimension " .. name
+		node.tiles = node.tiles or {"default_steel_block.png"}
+		node.groups = node.groups or {cracky=2,not_in_creative_inventory=multidimensions.craftable_teleporters and 0 or 1}
+		node.sounds = node.sounds or mcl_sounds.node_sound_wood_defaults()
 		node.after_place_node = function(pos, placer, itemstack)
 			local meta=minetest.get_meta(pos)
 			meta:set_string("owner",placer:get_player_name())
@@ -157,18 +188,6 @@ multidimensions.register_dimension=function(name,def,self)
 end
 
 -- Set the 3D noise parameters for the terrain.
-
-local np_terrain = {
-	offset = 0,
-	scale = 1,
-	spread = {x = 384, y = 192, z = 384},
-	seed = 5900033,
-	octaves = 5,
-	persist = 0.63,
-	lacunarity = 2.0,
-	--flags = ""
-}
-
 -- Initialize noise object to nil. It will be created once only during the
 -- generation of the first mapchunk, to minimise memory use.
 
@@ -176,8 +195,6 @@ local nobj_terrain = nil
 
 -- Localise noise buffer table outside the loop, to be re-used for all
 -- mapchunks, therefore minimising memory use.
-
-local nvals_terrain = {}
 
 -- Localise data buffer table outside the loop, to be re-used for all
 -- mapchunks, therefore minimising memory use.
@@ -205,8 +222,13 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local cave_threshold = d.cave_threshold
 			local lenth = maxp.x-minp.x+1
 			local cindx = 1
+			--Default map creation
 			local map = minetest.get_perlin_map(d.map,{x=lenth,y=lenth,z=lenth}):get_3d_map_flat(minp)
 			local cavemap = minetest.get_perlin_map(d.cavemap,{x=lenth,y=lenth,z=lenth}):get_3d_map_flat(minp)
+			--Added special generated 2d perlin_noise
+			local landmass = minetest.get_perlin(d.landmass)
+			local ridges = minetest.get_perlin(d.ridges)
+			local erosion = minetest.get_perlin(d.erosion)
 			local enable_water = d.enable_water
 			local terrain_density = d.terrain_density
 			local flatland = d.flatland
@@ -229,45 +251,41 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			d.self.heat = heat
 			d.self.humidity = humidity
 
-			local vm,min,max = minetest.get_mapgen_object("voxelmanip")
-			local area = VoxelArea:new({MinEdge = min, MaxEdge = max})
-			local data = vm:get_data()
+			-- Voxelmanip stuff.
+
+			-- Load the voxelmanip with the result of engine mapgen. Since 'singlenode'
+			-- mapgen is used this will be a mapchunk of air nodes.
+			local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
+			-- 'area' is used later to get the voxelmanip indexes for positions.
+			local area = VoxelArea:new{MinEdge = emin, MaxEdge = emax}
+			-- Get the content ID data from the voxelmanip in the form of a flat array.
+			-- Set the buffer parameter to use and reuse 'data' for this.
+			vm:get_data(data)
 
 			for z=minp.z,maxp.z do
 				for y=minp.y,maxp.y do
 					local id = area:index(minp.x,y,z)
-				for x=minp.x,maxp.x do	
-					local den = (math.abs(map[cindx]) - (math.abs(height-y)/(depth*2))) or 0
+				for x=minp.x,maxp.x do
+					local flat = {x=x,y=z}
+					local landmass_noise = landmass:get_2d(flat)
+					local ridges_noise =  ridges:get_2d(flat)
 					if y <= miny+bedrock_depth then
 						data[id] = bedrock
-					elseif y < height and y > miny + bedrock_depth then --CBN 22/10/2022 Fill air pockets
+					elseif y <= ( landmass_noise + height) then
 						data[id] = stone
-					elseif enable_water and den <= terrain_density and y <= height+d.dirt_depth+1 and y >= height-water_depth  then	--CBN 22/10/2022 Bind water generation
-						data[id] = water
-						if y+1 == height+d.dirt_depth+1 then -- fix water holes
-							data[id+area.ystride] = water
-						elseif not (data[id-area.ystride * 2] == water) then --CBN 21/10/2022 Fix intermitent horizontal layers of sand and water
-							data[id-area.ystride]=sand
-						end
-					elseif y >= height and y <= height+dirt_depth then
-						data[id] = dirt
-						data[id+area.ystride]=grass
-					elseif not flatland then
-						if y >= height and y<= ground_limit and den >= terrain_density then
-							data[id] = dirt
-							data[id+area.ystride]=grass
-							data[id-area.ystride]=stone
-							if den > 1 then
-								data[id]=stone
-							end
-						end
 					else
-						data[id] = air
+						if y < height then
+							data[id] = water
+						else
+							data[id] = air
+						end						
 					end
+
+					--minetest.log("default", "landmass_noise = " .. landmass_noise .. " ridges_noise = " .. ridges_noise)
 					
-					if y < ground_limit and y > miny + bedrock_depth and cavemap[cindx] <= cave_threshold then --CBN 22/10/2022 Cave carving
-						data[id] = air
-					end
+					--if y < ground_limit and y > miny + bedrock_depth and cavemap[cindx] <= cave_threshold then --CBN 22/10/2022 Cave carving
+					--	data[id] = air
+					--end
 					
 					if d.on_generate then
 						data = d.on_generate(d.self,data,id,area,x,y,z) or data
@@ -331,8 +349,6 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				vm:set_data(data)
 				vm:write_to_map()
 				vm:update_liquids()
-		end
-	end
 	
 			--[[
 			if use_biomegen then
@@ -361,6 +377,8 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			-- Liquid nodes were placed so set them flowing.
 			vm:update_liquids()
 			]]--
+		end
+	end
 end)
 
 minetest.register_node("multidimensions:bedrock", {

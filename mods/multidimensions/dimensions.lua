@@ -16,12 +16,12 @@ multidimensions.register_dimension("testing",{
 	deep_y = 240,
 	
 	dirt_start = 501,       -- when dirt begins to appear (default is 501)
-	dirt_depth = 3,	    	-- dirt depth
+	dirt_depth = 5,	    	-- dirt depth
 	ground_limit = 530,		-- ground y limit (ground ends here)
 	bedrock_depth = 5,	    -- How many layers of the bottom bedrock should cover
-	water_depth = 8,	    -- depth fron ground and down
+	water_depth = 50,	    -- depth from ground and down
 	enable_water = nil,     -- (nil = true)
-	terrain_density = 0.4,  -- or ground density
+	terrain_density = 0.3,  -- or ground density
 	cave_threshold = 0.075, -- threshold below which caves carved
 	flatland = nil,         -- (nil = false)
 	teleporter = nil,       -- (nil = true) dimension teleporter
@@ -30,12 +30,12 @@ multidimensions.register_dimension("testing",{
 	map = {
 	offset = 0,
 	scale = 1,
-	spread = {x=100,y=18,z=100},
-	seeddiff = 24,
+	spread = {x = 384, y = 192, z = 384},
+	seed = 5900033,
 	octaves = 5,
-	persist = 0.7,
-	lacunarity = 1,
-	flags = "absvalue",
+	persist = 0.63,
+	lacunarity = 2.0,
+	--flags = ""
 	},
 	
 	cavemap = {
