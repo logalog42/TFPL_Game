@@ -28,27 +28,61 @@ multidimensions.register_dimension("testing",{
 	gravity = 1,		    -- (1 = default) dimension gravity
 	
 	map = {
-	offset = 0,
-	scale = 1,
-	spread = {x = 384, y = 192, z = 384},
-	seed = 5900033,
-	octaves = 5,
-	persist = 0.63,
-	lacunarity = 2.0,
-	--flags = ""
+		offset = 0,
+		scale = 1,
+		spread = {x = 384, y = 192, z = 384},
+		seed = 5900033,
+		octaves = 5,
+		persist = 0.63,
+		lacunarity = 2.0,
+		flags = ""
 	},
 	
 	cavemap = {
-	offset = 0,
-	scale = 1,
-	spread = {x=70,y=30,z=70},
-	seeddiff = 128,
-	octaves = 5,
-	persist = 0.2,
-	lacunarity = 1.4,
-	flags = "defaults, absvalue",
+		offset = 0,
+		scale = 1,
+		spread = {x=70,y=30,z=70},
+		seeddiff = 128,
+		octaves = 5,
+		persist = 0.2,
+		lacunarity = 1.4,
+		flags = "defaults, absvalue",
 	},
 	
+
+	ridges = {
+		offset = 0,
+		scale = 5,
+		spread = {x=40,y=40,z=40},
+		seeddiff = 24,
+		octaves = 6,
+		persist = 1,
+		lacunarity = 1.6,
+		flags = ""
+	},
+
+	erosion = {
+		offset = 0,
+		scale = 0.37,
+		spread = {x=100,y=100,z=100},
+		seeddiff = 24,
+		octaves = 5,
+		persist = 0.7,
+		lacunarity = 1,
+		flags = "absvalue"
+	},
+
+	landmass = {
+		offset = 30,
+		scale = 80,
+		spread = {x=500,y=450,z=500},
+		seeddiff = 24,
+		octaves = 6,
+		persist = 0.7,
+		lacunarity = 1,
+		flags = ""
+	},
+
 	craft = { -- teleport craft recipe
 	{"default:obsidianbrick", "default:steel_ingot", "default:obsidianbrick"},
 	{"default:wood","default:mese","default:wood",},

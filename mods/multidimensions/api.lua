@@ -205,9 +205,9 @@ local data = {}
 -- and decorations
 
 local use_biomegen = false
+
 if minetest.global_exists("biomegen") then
 	use_biomegen = true
-	biomegen.set_elevation_chill(0.35)
 end
 
 
@@ -267,14 +267,21 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					local id = area:index(minp.x,y,z)
 				for x=minp.x,maxp.x do
 					local flat = {x=x,y=z}
-					local landmass_noise = landmass:get_2d(flat)
-					local ridges_noise =  ridges:get_2d(flat)
+					local landmass_noise = math.floor(landmass:get_2d(flat))
+					local ridges_noise =  math.floor(ridges:get_2d(flat))
+					local erosion_noise = erosion:get_2d(flat)
+					local stone_layer = math.ceil((landmass_noise * erosion_noise) + height) - dirt_depth
+					local dirt_layer = math.ceil((landmass_noise * erosion_noise) + height)
 					if y <= miny+bedrock_depth then
 						data[id] = bedrock
-					elseif y <= ( landmass_noise + height) then
+					elseif y <= stone_layer then
 						data[id] = stone
+					--elseif stone_layer <= y and y <= dirt_layer and y >= height then
+						--data[id] = dirt
+					elseif stone_layer <= y and y <= dirt_layer and y < height then
+						data[id] = sand
 					else
-						if y < height then
+						if y < height and enable_water then
 							data[id] = water
 						else
 							data[id] = air
@@ -299,6 +306,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 		
 				local node_y = minp.y
 				
+				--[[
 				for i1,v1 in pairs(data) do
 					if i1%area.ystride == 0 then
 						node_y = node_y + 1
@@ -346,13 +354,13 @@ minetest.register_on_generated(function(minp, maxp, seed)
 						end
 					end
 				end
-				vm:set_data(data)
-				vm:write_to_map()
-				vm:update_liquids()
-	
-			--[[
+				--vm:set_data(data)
+				--vm:write_to_map()
+				--vm:update_liquids()
+				]]--
+			
 			if use_biomegen then
-				-- Generate biomes in 'data', using biomegen mod
+				--[[-- Generate biomes in 'data', using biomegen mod
 				biomegen.generate_biomes(data, area, minp, maxp)
 		
 				-- Write content ID data back to the voxelmanip.
@@ -365,6 +373,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				vm:get_data(data)
 				-- Add biome dust in VM (needs 'data' for reading)
 				biomegen.dust_top_nodes(data, area, vm, minp, maxp)
+				]]--
+
+				biomegen.generate_all(data, area, vm, minp, maxp, seed)
 			else
 				-- If biomegen is not present, just write content ID data back to the VM.
 				vm:set_data(data)
@@ -376,7 +387,6 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			vm:write_to_map()
 			-- Liquid nodes were placed so set them flowing.
 			vm:update_liquids()
-			]]--
 		end
 	end
 end)
