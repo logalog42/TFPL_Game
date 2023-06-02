@@ -304,8 +304,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				end
 			end
 
-			local node_y = minp.y
-
+			--[[
 			for i1,v1 in pairs(data) do
 				if i1%area.ystride == 0 then
 					node_y = node_y + 1
@@ -353,6 +352,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					end
 				end
 			end
+			]]--
 
 			if maxp.y < (height - 160) then
 				local undergroundmin = {x = minp.x, y = -48, z = minp.z}
