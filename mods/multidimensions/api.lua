@@ -241,7 +241,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local bedrock_depth = d.bedrock_depth
 
 			local dirt = d.self.dirt
-			local stone =d.self.stone
+			local stone =minetest.get_content_id("mcl_core:stone")
 			local grass = d.self.grass
 			local air = d.self.air
 			local water = d.self.water
@@ -303,90 +303,94 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				end
 				end
 			end
-		
-				local node_y = minp.y
-				
-				--[[
-				for i1,v1 in pairs(data) do
-					if i1%area.ystride == 0 then
-						node_y = node_y + 1
-					end
-					if i1%area.zstride == 0 then --CBN 22/10/2022 data moves in the x axis first, then y axis then z axis, thus when a full zstride has been completed, it goes back to the base of the area
-						node_y = minp.y
-					end
-					local da = data[i1]
-					local typ
-					if da == air and d.ground_ores and data[i1-area.ystride] == grass then
-						typ = "ground"
-					elseif da == grass and d.grass_ores then
-						typ = "grass"
-					elseif da == dirt and d.dirt_ores then
-						typ = "dirt"
-					elseif da == stone and d.deep_stone_ores and node_y <= miny + deep_y then
-						typ = "deep_stone" --CBN 22/10/2022 Added deep stone ores, so that you can set two layers of ores with different chances, to encourage deep mining
-					elseif da == stone and d.stone_ores then
-						typ = "stone"
-					elseif da == air and d.air_ores then
-						typ = "air"
-					elseif da == water and d.water_ores then
-						typ = "water"
-					elseif da == sand and d.sand_ores then
-						typ = "sand"
-					end
-					if typ then
-						for i2,v2 in pairs(d[typ.."_ores"]) do
-							if math.random(1,v2.chance) == 1 and not (v2.min_heat and (heat < v2.min_heat or heat > v2.max_heat)) then
-								if v2.chunk then
-									for x=-v2.chunk,v2.chunk do
-									for y=-v2.chunk,v2.chunk do
-									for z=-v2.chunk,v2.chunk do
-										local id = i1 + x + (y * area.ystride) + (z * area.zstride)
-										if da == data[id] then
-											data[id]=i2
-										end
+
+			local node_y = minp.y
+
+			for i1,v1 in pairs(data) do
+				if i1%area.ystride == 0 then
+					node_y = node_y + 1
+				end
+				if i1%area.zstride == 0 then --CBN 22/10/2022 data moves in the x axis first, then y axis then z axis, thus when a full zstride has been completed, it goes back to the base of the area
+					node_y = minp.y
+				end
+				local da = data[i1]
+				local typ
+				if da == air and d.ground_ores and data[i1-area.ystride] == grass then
+					typ = "ground"
+				elseif da == grass and d.grass_ores then
+					typ = "grass"
+				elseif da == dirt and d.dirt_ores then
+					typ = "dirt"
+				elseif da == stone and d.deep_stone_ores and node_y <= miny + deep_y then
+					typ = "deep_stone" --CBN 22/10/2022 Added deep stone ores, so that you can set two layers of ores with different chances, to encourage deep mining
+				elseif da == stone and d.stone_ores then
+					typ = "stone"
+				elseif da == air and d.air_ores then
+					typ = "air"
+				elseif da == water and d.water_ores then
+					typ = "water"
+				elseif da == sand and d.sand_ores then
+					typ = "sand"
+				end
+				if typ then
+					for i2,v2 in pairs(d[typ.."_ores"]) do
+						if math.random(1,v2.chance) == 1 and not (v2.min_heat and (heat < v2.min_heat or heat > v2.max_heat)) then
+							if v2.chunk then
+								for x=-v2.chunk,v2.chunk do
+								for y=-v2.chunk,v2.chunk do
+								for z=-v2.chunk,v2.chunk do
+									local id = i1 + x + (y * area.ystride) + (z * area.zstride)
+									if da == data[id] then
+										data[id]=i2
 									end
-									end
-									end
-								else
-									data[i1]=i2
 								end
+								end
+								end
+							else
+								data[i1]=i2
 							end
 						end
 					end
 				end
-				--vm:set_data(data)
-				--vm:write_to_map()
-				--vm:update_liquids()
-				]]--
-			
-			if use_biomegen then
-				--[[-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, minp, maxp)
-		
-				-- Write content ID data back to the voxelmanip.
-				vm:set_data(data)
-				-- Generate ores using core's function
-				minetest.generate_ores(vm, minp, maxp)
-				-- Generate decorations in VM (needs 'data' for reading)
-				biomegen.place_all_decos(data, area, vm, minp, maxp, seed)
-				-- Update data array to have ores/decorations
-				vm:get_data(data)
-				-- Add biome dust in VM (needs 'data' for reading)
-				biomegen.dust_top_nodes(data, area, vm, minp, maxp)
-				]]--
-
-				biomegen.generate_all(data, area, vm, minp, maxp, seed)
-			else
-				-- If biomegen is not present, just write content ID data back to the VM.
-				vm:set_data(data)
 			end
-		
+
+			if maxp.y < (height - 160) then
+				local undergroundmin = {x = minp.x, y = -48, z = minp.z}
+				local undergroundmax = {x = minp.x, y = -31, z = minp.z}
+				-- Generate biomes in 'data', using biomegen mod
+				biomegen.generate_biomes(data, area, undergroundmin, undergroundmax)
+			elseif maxp.y < (height - 80) then
+				local deepoceanmin = {x = minp.x, y = -32, z = minp.z}
+				local deepoceanmax = {x = minp.x, y = -11, z = minp.z}
+				-- Generate biomes in 'data', using biomegen mod
+				biomegen.generate_biomes(data, area, deepoceanmin, deepoceanmax)
+			elseif maxp.y < (height + 1) then
+				local oceanmin = {x = minp.x, y = -12, z = minp.z}
+				local oceanmax = {x = minp.x, y = -1, z = minp.z}
+				-- Generate biomes in 'data', using biomegen mod
+				biomegen.generate_biomes(data, area, oceanmin, oceanmax)
+			else
+				-- Generate biomes in 'data', using biomegen mod
+				biomegen.generate_biomes(data, area, minp, maxp)
+			end
+			-- Write content ID data back to the voxelmanip.
+			vm:set_data(data)
+			-- Generate ores using core's function
+			minetest.generate_ores(vm, minp, maxp)
+			-- Generate decorations in VM (needs 'data' for reading)
+			biomegen.place_all_decos(data, area, vm, minp, maxp, seed)
+			-- Update data array to have ores/decorations
+			vm:get_data(data)
+			-- Add biome dust in VM (needs 'data' for reading)
+			biomegen.dust_top_nodes(data, area, vm, minp, maxp)
+
 			-- Calculate lighting for what has been created.
 			vm:calc_lighting()
 			-- Write what has been created to the world.
 			vm:write_to_map()
 			-- Liquid nodes were placed so set them flowing.
 			vm:update_liquids()
+
 		end
 	end
 end)

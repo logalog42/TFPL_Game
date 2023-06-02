@@ -435,7 +435,7 @@ local function place_deco(deco, data, a, vm, minp, maxp, blockseed)
 					end
 				end
 
-				if y >= deco.y_min and y <= deco.y_max and y >= minp.y and y <= maxp.y then
+				if y >= tonumber(deco.y_min) and y <= tonumber(deco.y_max) and y >= minp.y and y <= maxp.y then
 					local biome_ok = true
 					if deco.use_biomes and #biomemap > 0 then
 						local biome_here = biomemap[mapindex]
