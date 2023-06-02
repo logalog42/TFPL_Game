@@ -390,7 +390,7 @@ local function place_deco(deco, data, a, vm, minp, maxp, blockseed)
 
 					if deco.flags["all_floors"] then
 						for _, y in ipairs(floors) do
-							if y >= biome.y_min and y <= biome.y_max then
+							if y >= deco.y_min and y <= deco.y_max then
 								local pos = {x=x, y=y, z=z}
 								if can_place_deco(deco, data, vi, pattern) then
 									deco:generate(vm, ps, pos, false)
@@ -401,7 +401,7 @@ local function place_deco(deco, data, a, vm, minp, maxp, blockseed)
 
 					if deco.flags["all_ceilings"] then
 						for _, y in ipairs(ceilings) do
-							if y >= biome.y_min and y <= biome.y_max then
+							if y >= deco.y_min and y <= deco.y_max then
 								local pos = {x=x, y=y, z=z}
 								if can_place_deco(deco, data, vi, pattern) then
 									deco:generate(vm, ps, pos, true)

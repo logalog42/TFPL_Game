@@ -7,7 +7,7 @@ local plants = {
 	["multidimensions:pine_tree"] = 1000,
 }
 
-multidimensions.register_dimension("testing",{
+multidimensions.register_dimension("FreeBuild",{
 	
 	self = {},		    	-- can contain everything, var like dirt="default:dirt" will be remade to dirt=content_id
 	
@@ -27,6 +27,17 @@ multidimensions.register_dimension("testing",{
 	teleporter = nil,       -- (nil = true) dimension teleporter
 	gravity = 1,		    -- (1 = default) dimension gravity
 	
+	sand_ores = {
+		["mcl_core:gravel"] = {
+			chance = 1000,
+			chunk = 5,
+		},
+		["mcl_core:clay"] = {
+			chance = 1000,
+			chunk = 3,
+		}
+	},
+
 	map = {
 		offset = 0,
 		scale = 1,
@@ -89,7 +100,35 @@ multidimensions.register_dimension("testing",{
 	{"default:obsidianbrick", "default:steel_ingot", "default:obsidianbrick"},
 	},
 
-	sky = {{r=219, g=168, b=117},"plain",{}}, -- same as:set_sky()
+	on_enter=function(player) --on enter dimension
+		local name=player:get_player_name()
+		minetest.set_player_privs(name, {
+			dimensions = true,
+			shout = true,
+			interact = true,
+			fast = false,
+			fly = true,
+			noclip = false,
+			teleport = true,
+			creative = true,
+			bring = false,
+			give = false,
+			settime = false,
+			debug = false,
+			privs = false,
+			basic_privs = false,
+			kick = false,
+			ban = false,
+			password = false,
+			protection_bypass = false,
+			server = false,
+			rollback = false
+		
+		})
+	end,
+	
+	on_leave=function(player) --on leave dimension
+	end,
 
 })
 
