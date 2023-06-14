@@ -24,6 +24,9 @@ multidimensions.register_dimension("FreeBuild",{
 	terrain_density = 0.3,  -- or ground density
 	cave_threshold = 0.075, -- threshold below which caves carved
 	flatland = nil,         -- (nil = false)
+	blank = nil,
+	generate_multiores = false,
+	generate_biomes = true,
 	teleporter = nil,       -- (nil = true) dimension teleporter
 	gravity = 1,		    -- (1 = default) dimension gravity
 	
@@ -101,29 +104,15 @@ multidimensions.register_dimension("FreeBuild",{
 	},
 
 	on_enter=function(player) --on enter dimension
-		local name=player:get_player_name()
+		local name = player:get_player_name()
 		minetest.set_player_privs(name, {
-			dimensions = true,
-			shout = true,
-			interact = true,
-			fast = false,
-			fly = true,
-			noclip = false,
-			teleport = true,
-			creative = true,
-			bring = false,
-			give = false,
-			settime = false,
-			debug = false,
-			privs = false,
-			basic_privs = false,
-			kick = false,
-			ban = false,
-			password = false,
-			protection_bypass = false,
-			server = false,
-			rollback = false
-		
+			dimensions=true,
+			shout=true,
+			interact=true,
+			fly=true,
+			teleport=true,
+			creative=true,
+			basic_privs=true,	
 		})
 	end,
 	
@@ -132,6 +121,48 @@ multidimensions.register_dimension("FreeBuild",{
 
 })
 
+multidimensions.register_dimension("City",{
+
+	self = {},		    	-- can contain everything, var like dirt="default:dirt" will be remade to dirt=content_id
+	
+	dim_y = 3000,           -- dimension start (don't change if you don't know what you're doing)
+	dim_height =  2000,	    -- dimension height
+	deep_y = 0,
+	
+	dirt_start = 500,       -- when dirt begins to appear (default is 501)
+	dirt_depth = 3,	   		-- dirt depth
+	flatland = true,        -- (nil = false)
+	teleporter = nil,       -- (nil = true) dimension teleporter
+	gravity = 1,		    -- (1 = default) dimension gravity
+	generate_multiores = false,
+	generate_biomes = false,
+
+	 craft = { -- teleport craft recipe
+	  {"default:obsidianbrick", "default:steel_ingot", "default:obsidianbrick"},
+	  {"default:wood","default:mese","default:wood",},
+	  {"default:obsidianbrick", "default:steel_ingot", "default:obsidianbrick"},
+	 },
+  
+	 on_generate=function(self,data,id,area,x,y,z)
+	 end,
+	 
+	 on_enter=function(player) --on enter dimension
+		local name = player:get_player_name()
+		minetest.set_player_privs(name, {
+			dimensions=true,
+			shout=true,
+			interact=true,
+			fly=true,
+			teleport=true,
+			creative=true,
+			basic_privs=true,
+		})
+	 end,
+	 
+	 on_leave=function(player) --on leave dimension
+	 end,
+	 
+  })
 
 --[[ DIMENSION BASE API
 multidimensions.register_dimension("name",{
@@ -224,6 +255,30 @@ multidimensions.register_dimension("name",{
 	 sky = {{r=219, g=168, b=117},"plain",{}}, -- same as:set_sky()
 	 
 	 on_enter=function(player) --on enter dimension
+		local name = player:get_player_name()
+		minetest.set_player_privs(name, {
+			dimensions=true,
+			shout=true,
+			interact=true,
+			fast=true,
+			fly=true,
+			noclip=true,
+			teleport=true,
+			creative=true,
+			bring=true,
+			give=true,
+			settime=true,
+			debug=true,
+			privs=true,
+			basic_privs=true,
+			kick=true,
+			ban=true,
+			password=true,
+			protection_bypass=true,
+			server=true,
+			rollback=true
+		
+		})
 	 end,
 	 
 	 on_leave=function(player) --on leave dimension

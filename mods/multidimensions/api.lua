@@ -99,6 +99,9 @@ multidimensions.register_dimension=function(name,def,self)
 	--def.sand_ores {}
 	--on_generate=function(data,id,cdata,area,x,y,z)
 
+	def.self.generate_multiores = def.generate_multiores or false
+	def.self.generate_biomes = def.generate_biomes or true
+
 
 	for i,v in pairs(table.copy(def.self)) do
 		def.self[i] = minetest.registered_items[v] and minetest.get_content_id(v) or def.self[i]
@@ -210,7 +213,6 @@ if minetest.global_exists("biomegen") then
 	use_biomegen = true
 end
 
-
 minetest.register_on_generated(function(minp, maxp, seed)
 	for i,d in pairs(multidimensions.registered_dimensions) do
 		if minp.y >= d.dim_y and maxp.y <= d.dim_y+d.dim_height then
@@ -232,6 +234,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local enable_water = d.enable_water
 			local terrain_density = d.terrain_density
 			local flatland = d.flatland
+			local blank = d.blank
 			local heat = minetest.get_heat(minp)
 			local humidity = minetest.get_humidity(minp)
 
@@ -241,12 +244,15 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local bedrock_depth = d.bedrock_depth
 
 			local dirt = d.self.dirt
-			local stone =minetest.get_content_id("mcl_core:stone")
+			local stone = minetest.get_content_id("mcl_core:stone")
 			local grass = d.self.grass
 			local air = d.self.air
 			local water = d.self.water
 			local sand = d.self.sand
 			local bedrock = d.self.bedrock
+
+			local multidimensions_ores = d.self.multidimensions_ores
+			local generate_biomes = d.self.generate_biomes
 
 			d.self.heat = heat
 			d.self.humidity = humidity
@@ -262,133 +268,175 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			-- Set the buffer parameter to use and reuse 'data' for this.
 			vm:get_data(data)
 
-			for z=minp.z,maxp.z do
-				for y=minp.y,maxp.y do
-					local id = area:index(minp.x,y,z)
-				for x=minp.x,maxp.x do
-					local flat = {x=x,y=z}
-					local landmass_noise = math.floor(landmass:get_2d(flat))
-					local ridges_noise =  math.floor(ridges:get_2d(flat))
-					local erosion_noise = erosion:get_2d(flat)
-					local stone_layer = math.ceil((landmass_noise * erosion_noise) + height) - dirt_depth
-					local dirt_layer = math.ceil((landmass_noise * erosion_noise) + height)
-					if y <= miny+bedrock_depth then
-						data[id] = bedrock
-					elseif y <= stone_layer then
-						data[id] = stone
-					elseif stone_layer <= y and y <= dirt_layer and y < height - 1 then
-						data[id] = sand
-					else
-						if y < height and enable_water then
-							data[id] = water
+			if flatland == true then
+				for z=minp.z,maxp.z do
+					for y=minp.y,maxp.y do
+						local id = area:index(minp.x,y,z)
+						for x=minp.x,maxp.x do
+							if y <= miny+bedrock_depth then
+								data[id] = bedrock
+							elseif y < height then
+								data[id] = stone
+							elseif y >= height and y < height + dirt_depth then
+								data[id] = dirt
+							else
+								data[id] = air
+							end
+
+							--minetest.log("default", "landmass_noise = " .. landmass_noise .. " ridges_noise = " .. ridges_noise)
+							
+							--if y < ground_limit and y > miny + bedrock_depth and cavemap[cindx] <= cave_threshold then --CBN 22/10/2022 Cave carving
+							--	data[id] = air
+							--end
+							
+							if d.on_generate then
+								data = d.on_generate(d.self,data,id,area,x,y,z) or data
+							end
+				
+							cindx=cindx+1
+							id=id+1
+						end
+					end
+				end
+			else
+				for z=minp.z,maxp.z do
+					for y=minp.y,maxp.y do
+						local id = area:index(minp.x,y,z)
+					for x=minp.x,maxp.x do
+						if blank == nil then
+							local flat = {x=x,y=z}
+							local landmass_noise = math.floor(landmass:get_2d(flat))
+							local ridges_noise =  math.floor(ridges:get_2d(flat))
+							local erosion_noise = erosion:get_2d(flat)
+							local stone_layer = math.floor((landmass_noise * erosion_noise) + height) - dirt_depth
+							local dirt_layer = math.floor((landmass_noise * erosion_noise) + height)
+							if y <= miny+bedrock_depth then
+								data[id] = bedrock
+							elseif y <= stone_layer then
+								data[id] = stone
+							elseif stone_layer <= y and y <= dirt_layer and y < height - 1 then
+								data[id] = sand
+							else
+								if y < height and enable_water then
+									data[id] = water
+								else
+									data[id] = air
+								end
+							end
 						else
 							data[id] = air
-						end						
-					end
+						end
 
-					--minetest.log("default", "landmass_noise = " .. landmass_noise .. " ridges_noise = " .. ridges_noise)
-					
-					--if y < ground_limit and y > miny + bedrock_depth and cavemap[cindx] <= cave_threshold then --CBN 22/10/2022 Cave carving
-					--	data[id] = air
-					--end
-					
-					if d.on_generate then
-						data = d.on_generate(d.self,data,id,area,x,y,z) or data
+						--minetest.log("default", "landmass_noise = " .. landmass_noise .. " ridges_noise = " .. ridges_noise)
+						
+						--if y < ground_limit and y > miny + bedrock_depth and cavemap[cindx] <= cave_threshold then --CBN 22/10/2022 Cave carving
+						--	data[id] = air
+						--end
+						
+						if d.on_generate then
+							data = d.on_generate(d.self,data,id,area,x,y,z) or data
+						end
+			
+						cindx=cindx+1
+						id=id+1
 					end
-		
-					cindx=cindx+1
-					id=id+1
-				end
+					end
 				end
 			end
-
 			local node_y = minp.y
 
-			for i1,v1 in pairs(data) do
-				if i1%area.ystride == 0 then
-					node_y = node_y + 1
-				end
-				if i1%area.zstride == 0 then --CBN 22/10/2022 data moves in the x axis first, then y axis then z axis, thus when a full zstride has been completed, it goes back to the base of the area
-					node_y = minp.y
-				end
-				local da = data[i1]
-				local typ
-				if da == air and d.ground_ores and data[i1-area.ystride] == grass then
-					typ = "ground"
-				elseif da == grass and d.grass_ores then
-					typ = "grass"
-				elseif da == dirt and d.dirt_ores then
-					typ = "dirt"
-				elseif da == stone and d.deep_stone_ores and node_y <= miny + deep_y then
-					typ = "deep_stone" --CBN 22/10/2022 Added deep stone ores, so that you can set two layers of ores with different chances, to encourage deep mining
-				elseif da == stone and d.stone_ores then
-					typ = "stone"
-				elseif da == air and d.air_ores then
-					typ = "air"
-				elseif da == water and d.water_ores then
-					typ = "water"
-				elseif da == sand and d.sand_ores then
-					typ = "sand"
-				end
-				if typ then
-					for i2,v2 in pairs(d[typ.."_ores"]) do
-						if math.random(1,v2.chance) == 1 and not (v2.min_heat and (heat < v2.min_heat or heat > v2.max_heat)) then
-							if v2.chunk then
-								for x=-v2.chunk,v2.chunk do
-								for y=-v2.chunk,v2.chunk do
-								for z=-v2.chunk,v2.chunk do
-									local id = i1 + x + (y * area.ystride) + (z * area.zstride)
-									if da == data[id] then
-										data[id]=i2
+			if multidimensions_ores == true then
+				for i1,v1 in pairs(data) do
+					if i1%area.ystride == 0 then
+						node_y = node_y + 1
+					end
+					if i1%area.zstride == 0 then --CBN 22/10/2022 data moves in the x axis first, then y axis then z axis, thus when a full zstride has been completed, it goes back to the base of the area
+						node_y = minp.y
+					end
+					local da = data[i1]
+					local typ
+					if da == air and d.ground_ores and data[i1-area.ystride] == grass then
+						typ = "ground"
+					elseif da == grass and d.grass_ores then
+						typ = "grass"
+					elseif da == dirt and d.dirt_ores then
+						typ = "dirt"
+					elseif da == stone and d.deep_stone_ores and node_y <= miny + deep_y then
+						typ = "deep_stone" --CBN 22/10/2022 Added deep stone ores, so that you can set two layers of ores with different chances, to encourage deep mining
+					elseif da == stone and d.stone_ores then
+						typ = "stone"
+					elseif da == air and d.air_ores then
+						typ = "air"
+					elseif da == water and d.water_ores then
+						typ = "water"
+					elseif da == sand and d.sand_ores then
+						typ = "sand"
+					end
+					if typ then
+						for i2,v2 in pairs(d[typ.."_ores"]) do
+							if math.random(1,v2.chance) == 1 and not (v2.min_heat and (heat < v2.min_heat or heat > v2.max_heat)) then
+								if v2.chunk then
+									for x=-v2.chunk,v2.chunk do
+									for y=-v2.chunk,v2.chunk do
+									for z=-v2.chunk,v2.chunk do
+										local id = i1 + x + (y * area.ystride) + (z * area.zstride)
+										if da == data[id] then
+											data[id]=i2
+										end
 									end
+									end
+									end
+								else
+									data[i1]=i2
 								end
-								end
-								end
-							else
-								data[i1]=i2
 							end
 						end
 					end
 				end
 			end
 
-			if maxp.y < (height - 160) then
-				local undergroundmin = {x = minp.x, y = -48, z = minp.z}
-				local undergroundmax = {x = minp.x, y = -31, z = minp.z}
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, undergroundmin, undergroundmax)
-			elseif maxp.y < (height - 80) then
-				local deepoceanmin = {x = minp.x, y = -32, z = minp.z}
-				local deepoceanmax = {x = minp.x, y = -11, z = minp.z}
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, deepoceanmin, deepoceanmax)
-			elseif maxp.y < (height + 1) then
-				local oceanmin = {x = minp.x, y = -12, z = minp.z}
-				local oceanmax = {x = minp.x, y = -1, z = minp.z}
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, oceanmin, oceanmax)
+			if generate_biomes == true then
+				if maxp.y < (height - 160) then
+					local undergroundmin = {x = minp.x, y = -48, z = minp.z}
+					local undergroundmax = {x = minp.x, y = -31, z = minp.z}
+					-- Generate biomes in 'data', using biomegen mod
+					biomegen.generate_biomes(data, area, undergroundmin, undergroundmax)
+				elseif maxp.y < (height - 80) then
+					local deepoceanmin = {x = minp.x, y = -32, z = minp.z}
+					local deepoceanmax = {x = minp.x, y = -11, z = minp.z}
+					-- Generate biomes in 'data', using biomegen mod
+					biomegen.generate_biomes(data, area, deepoceanmin, deepoceanmax)
+				elseif maxp.y < (height + 1) then
+					local oceanmin = {x = minp.x, y = -12, z = minp.z}
+					local oceanmax = {x = minp.x, y = -1, z = minp.z}
+					-- Generate biomes in 'data', using biomegen mod
+					biomegen.generate_biomes(data, area, oceanmin, oceanmax)
+				else
+					-- Generate biomes in 'data', using biomegen mod
+					biomegen.generate_biomes(data, area, minp, maxp)
+				end
+				-- Write content ID data back to the voxelmanip.
+				vm:set_data(data)
+				-- Generate ores using core's function
+				minetest.generate_ores(vm, minp, maxp)
+				-- Generate decorations in VM (needs 'data' for reading)
+				biomegen.place_all_decos(data, area, vm, minp, maxp, seed)
+				-- Update data array to have ores/decorations
+				vm:get_data(data)
+				-- Add biome dust in VM (needs 'data' for reading)
+				biomegen.dust_top_nodes(data, area, vm, minp, maxp)
+
+				-- Calculate lighting for what has been created.
+				vm:calc_lighting()
+				-- Write what has been created to the world.
+				vm:write_to_map()
+				-- Liquid nodes were placed so set them flowing.
+				vm:update_liquids()
 			else
-				-- Generate biomes in 'data', using biomegen mod
-				biomegen.generate_biomes(data, area, minp, maxp)
+				vm:set_data(data)
+				vm:write_to_map()
+				vm:update_liquids()
 			end
-			-- Write content ID data back to the voxelmanip.
-			vm:set_data(data)
-			-- Generate ores using core's function
-			minetest.generate_ores(vm, minp, maxp)
-			-- Generate decorations in VM (needs 'data' for reading)
-			biomegen.place_all_decos(data, area, vm, minp, maxp, seed)
-			-- Update data array to have ores/decorations
-			vm:get_data(data)
-			-- Add biome dust in VM (needs 'data' for reading)
-			biomegen.dust_top_nodes(data, area, vm, minp, maxp)
-
-			-- Calculate lighting for what has been created.
-			vm:calc_lighting()
-			-- Write what has been created to the world.
-			vm:write_to_map()
-			-- Liquid nodes were placed so set them flowing.
-			vm:update_liquids()
-
 		end
 	end
 end)
