@@ -100,7 +100,7 @@ multidimensions.register_dimension=function(name,def,self)
 	--on_generate=function(data,id,cdata,area,x,y,z)
 
 	def.self.generate_multiores = def.generate_multiores or false
-	def.self.generate_biomes = def.generate_biomes or true
+	def.self.generate_biomes = def.generate_biomes or false
 
 
 	for i,v in pairs(table.copy(def.self)) do

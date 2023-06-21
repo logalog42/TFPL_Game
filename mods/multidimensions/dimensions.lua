@@ -134,8 +134,8 @@ multidimensions.register_dimension("City",{
 	flatland = true,        -- (nil = false)
 	teleporter = nil,       -- (nil = true) dimension teleporter
 	gravity = 1,		    -- (1 = default) dimension gravity
-	generate_multiores = false,
-	generate_biomes = false,
+	generate_multiores = nil,	--(nil = false)
+	generate_biomes = nil,		--(nil = false)
 
 	 craft = { -- teleport craft recipe
 	  {"default:obsidianbrick", "default:steel_ingot", "default:obsidianbrick"},
@@ -144,6 +144,29 @@ multidimensions.register_dimension("City",{
 	 },
   
 	 on_generate=function(self,data,id,area,x,y,z)
+		if y == 3500 then
+			if x == 0 then
+				if z == 0 then
+					for key, value in pairs(self) do
+						minetest.log("default", "Key = " .. key .. " Value = " .. tostring(value))		
+					end
+				end
+			end
+		end
+		local blockposx = math.floor(x / 16)
+		local blockposz = math.floor(z / 16)
+		local level = self.dirt_start + 3
+		if y == level then
+			if blockposx % 4 == 0 or blockposz % 4 == 0 then
+					if (math.abs(x % 64) < 2 or  math.abs(x % 64) > 12) and (math.abs(z % 64) < 2 or  math.abs(z % 64) > 12) then
+						data[id] = self.stone
+					else
+						data[id] = self.sand
+					end
+			else
+				data[id] = self.grass
+			end
+		end
 	 end,
 	 
 	 on_enter=function(player) --on enter dimension
