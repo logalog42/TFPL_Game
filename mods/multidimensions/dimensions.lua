@@ -180,6 +180,22 @@ multidimensions.register_dimension("City",{
 			creative=true,
 			basic_privs=true,
 		})
+		
+		local claimed = areas:getNodeOwners({0, 0, self.dirt_start})
+		local position = 0
+		local owner = false
+		for index, value in ipairs(claimed) do
+			if value == name then
+				owner = true
+				break
+			else
+				position = index
+			end
+		end
+		if not(owner) then
+			areas:add(name, name, pos1, pos2)
+		end
+
 	 end,
 	 
 	 on_leave=function(player) --on leave dimension
