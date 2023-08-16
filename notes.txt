@@ -1,0 +1,6 @@
+File changes to base Minclonia Files
+
+mcl_init
+    init.lua
+        mcl_vars.mapgen_limit = math.max(1, 320)
+        mcl_vars.MAX_MAP_GENERATION_LIMIT = math.max(1, 320)

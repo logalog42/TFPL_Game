@@ -1,0 +1,10 @@
+# textdomain: mcl_itemframes
+Item Frame=Рамка
+Item frames are decorative blocks in which items can be placed.=Рамки — это отделочные блоки, в которых можно хранить предметы.
+Just place any item on the item frame. Use the item frame again to retrieve the item.=Просто вставьте в рамку любой предмет. Нажмите правой кнопкой мыши на рамку, чтобы взять предмет обратно.
+Can hold an item.=Может хранить предмет.
+Glowing Item Frame=Светящаяся рамка предмета
+Glowing item frames are decorative blocks in which items can be placed.=Светящиеся рамки предметов — это отделочные блоки, в которых можно хранить предметы и заставлять их светиться.
+Can hold an item and glows.=Может хранить предмет и светится.
+Glow and Behold!=Сияй и созерцай!
+Craft a glow item frame.=Создание светящейся рамки.
