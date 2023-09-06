@@ -1,4 +1,3 @@
-local mg_name = minetest.get_mapgen_setting("mg_name")
 local mg_seed = minetest.get_mapgen_setting("seed")
 
 -- Some mapgen settings
@@ -7,18 +6,11 @@ local generate_fallen_logs = minetest.settings:get_bool("mcl_generate_fallen_log
 local mod_mcl_structures = minetest.get_modpath("mcl_structures")
 local mod_mcl_core = minetest.get_modpath("mcl_core")
 local mod_mcl_mushrooms = minetest.get_modpath("mcl_mushrooms")
-local mod_mcl_crimson = minetest.get_modpath("mcl_crimson")
-local mod_mcl_blackstone = minetest.get_modpath("mcl_blackstone")
-local mod_mcl_mangrove = minetest.get_modpath("mcl_mangrove")
 local mod_cherry_blossom = minetest.get_modpath("mcl_cherry_blossom")
-
-local deco_id_chorus_plant
 
 local beach_skycolor = "#78A7FF" -- This is the case for all beach biomes except for the snowy ones! Those beaches will have their own colour instead of this one.
 local ocean_skycolor = "#7BA4FF" -- This is the case for all ocean biomes except for non-deep frozen oceans! Those oceans will have their own colour instead of this one.
 local overworld_fogcolor = "#C0D8FF"
-
---local nether_skycolor = "#6EB1FF"
 
 --local end_fogcolor = "#A080A0"
 --local end_skycolor = "#000000"
@@ -27,8 +19,8 @@ local overworld_fogcolor = "#C0D8FF"
 -- Register biomes
 --
 
-local OCEAN_MIN = 
-local DEEP_OCEAN_MAX = multidimensions.api.height
+local OCEAN_MIN = 0
+local DEEP_OCEAN_MAX = -20
 local DEEP_OCEAN_MIN = -31
 
 local function register_classic_superflat_biome()
@@ -132,9 +124,7 @@ local function register_biomes()
 		"MesaBryce",
 		"MesaPlateauF",
 		"MesaPlateauFM",
-		"MangroveSwamp",
 	}
-
 
 	-- Ice Plains Spikes (rare)
 	minetest.register_biome({
@@ -1549,60 +1539,6 @@ local function register_biomes()
 		_mcl_fogcolor = overworld_fogcolor
 	})
 
-	-- Mangrove swamp
-	minetest.register_biome({
-		name = "MangroveSwamp",
-		node_top = "mcl_mud:mud",
-		depth_top = 1,
-		node_filler = "mcl_mud:mud",
-		depth_filler = 3,
-		node_riverbed = "mcl_core:dirt",
-		depth_riverbed = 2,
-		y_min = 1,
-		-- Note: Limited in height!
-		y_max = 27,
-		humidity_point = 95,
-		heat_point = 94,
-		_mcl_biome_type = "hot",
-		_mcl_palette_index = 27,
-		_mcl_skycolor = "#78A7FF",
-		_mcl_fogcolor = overworld_fogcolor
-	})
-	minetest.register_biome({
-		name = "MangroveSwamp_shore",
-		node_top = "mcl_mud:mud",
-		depth_top = 1,
-		node_filler = "mcl_mud:mud",
-		depth_filler = 3,
-		node_riverbed = "mcl_core:dirt",
-		depth_riverbed = 2,
-		y_min = -5,
-		y_max = 0,
-		humidity_point = 95,
-		heat_point = 94,
-		_mcl_biome_type = "hot",
-		_mcl_palette_index = 27,
-		_mcl_skycolor = "#78A7FF",
-		_mcl_fogcolor = overworld_fogcolor
-	})
-	minetest.register_biome({
-		name = "MangroveSwamp_ocean",
-		node_top = "mcl_core:dirt",
-		depth_top = 1,
-		node_filler = "mcl_core:dirt",
-		depth_filler = 3,
-		node_riverbed = "mcl_core:gravel",
-		depth_riverbed = 2,
-		y_min = OCEAN_MIN,
-		y_max = -6,
-		vertical_blend = 1,
-		humidity_point = 95,
-		heat_point = 94,
-		_mcl_biome_type = "hot",
-		_mcl_palette_index = 27,
-		_mcl_skycolor = ocean_skycolor,
-		_mcl_fogcolor = overworld_fogcolor
-	})
 	-- Swampland
 	minetest.register_biome({
 		name = "Swampland",
@@ -2287,7 +2223,6 @@ local warm_oceans = {
 	"Jungle_ocean",
 	"Desert_ocean",
 	"JungleM_ocean",
-	"MangroveSwamp_ocean"
 }
 local corals = {
 	"brain",
@@ -2743,7 +2678,7 @@ local function register_decorations()
 		fill_ratio = 0.004,
 		height = 7,
 		height_max = 15,
-		biomes = {"BambooJungle", "Jungle", "JungleM", "JungleEdge", "MangroveSwamp"},
+		biomes = {"BambooJungle", "Jungle", "JungleM", "JungleEdge"},
 		y_min = 1,
 		y_max = mcl_vars.mg_overworld_max,
 		param2 = 0,
@@ -2759,7 +2694,7 @@ local function register_decorations()
 			height_max = 15,
 			param2 = 0,
 			param2_max = 3,
-			biomes = {"BambooJungle", "Jungle", "JungleM", "JungleEdge", "MangroveSwamp"},
+			biomes = {"BambooJungle", "Jungle", "JungleM", "JungleEdge", },
 			y_min = 1,
 			y_max = mcl_vars.mg_overworld_max,
 			decoration = "mcl_bamboo:bamboo"..i,
@@ -2878,146 +2813,6 @@ local function register_decorations()
 		schematic = mod_mcl_core.."/schematics/mcl_core_oak_swamp.mts",
 		flags = "place_center_x, place_center_z",
 		rotation = "random",
-	})
-
-	minetest.register_decoration({
-		name = "mcl_biomes:mangrove_tree_1",
-		deco_type = "schematic",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.0065,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = 1,
-		y_max = mcl_vars.mg_overworld_max,
-		schematic = mod_mcl_mangrove.."/schematics/mcl_mangrove_tree_1.mts",
-		flags = "place_center_x, place_center_z, force_placement",
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		name = "mcl_biomes:mangrove_tree_2",
-		deco_type = "schematic",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.0045,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = -1,
-		y_max = mcl_vars.mg_overworld_max,
-		schematic = mod_mcl_mangrove.."/schematics/mcl_mangrove_tree_2.mts",
-		flags = "place_center_x, place_center_z, force_placement",
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		name = "mcl_biomes:mangrove_tree_3",
-		deco_type = "schematic",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.023,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = -1,
-		y_max = mcl_vars.mg_overworld_max,
-		schematic = mod_mcl_mangrove.."/schematics/mcl_mangrove_tree_3.mts",
-		flags = "place_center_x, place_center_z, force_placement",
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		name = "mcl_biomes:mangrove_tree_4",
-		deco_type = "schematic",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.023,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = -1,
-		y_max = mcl_vars.mg_overworld_max,
-		schematic = mod_mcl_mangrove.."/schematics/mcl_mangrove_tree_4.mts",
-		flags = "place_center_x, place_center_z, force_placement",
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		name = "mcl_biomes:mangrove_tree_4",
-		deco_type = "schematic",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.023,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = -1,
-		y_max = mcl_vars.mg_overworld_max,
-		schematic = mod_mcl_mangrove.."/schematics/mcl_mangrove_tree_5.mts",
-		flags = "place_center_x, place_center_z, force_placement",
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		--[[noise_params = {
-			offset = 0.01,
-			scale = 0.00001,
-			spread = {x = 250, y = 250, z = 250},
-			seed = 2,
-			octaves = 3,
-			persist = 0.33
-		},]]--
-		fill_ratio = 0.0005,
-		biomes = {"MangroveSwamp"},
-		y_min = 1,
-		y_max = mcl_vars.mg_overworld_max,
-		schematic = mod_mcl_mangrove.."/schematics/mcl_mangrove_bee_nest.mts",
-		flags = "place_center_x, place_center_z, force_placement",
-		rotation = "random",
-		spawn_by = "group:flower",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.045,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = 0,
-		y_max = 0,
-		decoration = "mcl_mangrove:water_logged_roots",
-		flags = "place_center_x, place_center_z, force_placement",
-	})
-
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_mangrove:mangrove_roots"},
-		spawn_by = {"group:water"},
-		num_spawn_by = 2,
-		sidelen = 80,
-		fill_ratio = 10,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		y_min = 0,
-		y_max = 0,
-		decoration = "mcl_mangrove:water_logged_roots",
-		flags = "place_center_x, place_center_z, force_placement, all_ceilings",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.045,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		place_offset_y = -1,
-		decoration = "mcl_mangrove:mangrove_mud_roots",
-		flags = "place_center_x, place_center_z, force_placement",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_mud:mud"},
-		sidelen = 80,
-		fill_ratio = 0.008,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		decoration = "mcl_core:deadbush",
-		flags = "place_center_x, place_center_z",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_core:water_source"},
-		sidelen = 80,
-		fill_ratio = 0.035,
-		biomes = {"MangroveSwamp","MangroveSwamp_shore"},
-		decoration = "mcl_flowers:waterlily",
-		flags = "place_center_x, place_center_z, liquid_surface",
 	})
 
 	-- Jungle tree
@@ -4169,7 +3964,7 @@ local function register_decorations()
 	-- Grasses and ferns
 	local grass_forest = {"Plains", "Taiga", "Forest", "FlowerForest", "BirchForest", "BirchForestM", "RoofedForest", "Swampland" }
 	local grass_mpf = {"MesaPlateauF_grasstop"}
-	local grass_plains = {"Plains", "SunflowerPlains", "BambooJungle", "JungleEdge", "JungleEdgeM", "MangroveSwamp", "CherryGrove" }
+	local grass_plains = {"Plains", "SunflowerPlains", "BambooJungle", "JungleEdge", "JungleEdgeM", "CherryGrove" }
 	local grass_savanna = {"Savanna", "SavannaM"}
 	local grass_sparse = {"ExtremeHills", "ExtremeHills+", "ExtremeHills+_snowtop", "ExtremeHillsM", "Jungle" }
 	local grass_mpfm = {"MesaPlateauFM_grasstop" }
@@ -4192,7 +3987,7 @@ local function register_decorations()
 	register_grass_decoration("tallgrass", 0.05, -0.03, grass_sparse)
 	register_grass_decoration("tallgrass", 0.05, 0.05, grass_mpfm)
 
-	local fern_minimal = { "Jungle", "JungleM", "BambooJungle", "JungleEdge", "JungleEdgeM", "Taiga", "MegaTaiga", "MegaSpruceTaiga", "ColdTaiga", "MangroveSwamp" }
+	local fern_minimal = { "Jungle", "JungleM", "BambooJungle", "JungleEdge", "JungleEdgeM", "Taiga", "MegaTaiga", "MegaSpruceTaiga", "ColdTaiga",  }
 	local fern_low = { "Jungle", "JungleM", "BambooJungle", "JungleEdge", "JungleEdgeM", "Taiga", "MegaTaiga", "MegaSpruceTaiga" }
 	local fern_Jungle = { "Jungle", "JungleM", "BambooJungle", "JungleEdge", "JungleEdgeM" }
 	--local fern_JungleM = { "JungleM" },
@@ -4519,368 +4314,4 @@ local function register_decorations()
 
 	register_flower("lily_of_the_valley", nil, 325)
 	register_flower("cornflower", flower_biomes2, 486)
-end
-
--- Decorations in non-Overworld dimensions
-local function register_dimension_decorations()
-	--[[ NETHER ]]
-	--NETHER WASTES (Nether)
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_nether:netherrack","mcl_nether:magma"},
-		sidelen = 16,
-		fill_ratio = 0.04,
-		biomes = {"Nether"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max  - 1,
-		flags = "all_floors",
-		decoration = "mcl_fire:eternal_fire",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_nether:netherrack"},
-		sidelen = 16,
-		fill_ratio = 0.013,
-		biomes = {"Nether"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max  - 1,
-		flags = "all_floors",
-		decoration = "mcl_mushrooms:mushroom_brown",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_nether:netherrack"},
-		sidelen = 16,
-		fill_ratio = 0.012,
-		biomes = {"Nether"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max  - 1,
-		flags = "all_floors",
-		decoration = "mcl_mushrooms:mushroom_red",
-	})
-
-	-- WARPED FOREST
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:warped_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.02,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max  - 10,
-		flags = "all_floors",
-		decoration = "mcl_crimson:warped_fungus",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		name = "mcl_biomes:warped_tree1",
-		place_on = {"mcl_crimson:warped_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.007,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max - 15,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_crimson.."/schematics/warped_fungus_1.mts",
-		size = {x = 5, y = 11, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		name = "mcl_biomes:warped_tree2",
-		place_on = {"mcl_crimson:warped_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.005,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max - 10,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_crimson.."/schematics/warped_fungus_2.mts",
-		size = {x = 5, y = 6, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		name = "mcl_biomes:warped_tree3",
-		place_on = {"mcl_crimson:warped_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.003,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max - 14,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_crimson.."/schematics/warped_fungus_3.mts",
-		size = {x = 5, y = 12, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:warped_nylium","mcl_crimson:twisting_vines"},
-		sidelen = 16,
-		fill_ratio = 0.032,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors",
-		height = 2,
-		height_max = 8,
-		decoration = "mcl_crimson:twisting_vines",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:warped_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.0812,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors",
-		max_height = 5,
-		decoration = "mcl_crimson:warped_roots",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:crimson_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.052,
-		biomes = {"WarpedForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors",
-		decoration = "mcl_crimson:nether_sprouts",
-	})
-	-- CRIMSON FOREST
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:crimson_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.02,
-		biomes = {"CrimsonForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max  - 10,
-		flags = "all_floors",
-		decoration = "mcl_crimson:crimson_fungus",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		name = "mcl_biomes:crimson_tree",
-		place_on = {"mcl_crimson:crimson_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.008,
-		biomes = {"CrimsonForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max - 10,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_crimson.."/schematics/crimson_fungus_1.mts",
-		size = {x = 5, y = 8, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		name = "mcl_biomes:crimson_tree2",
-		place_on = {"mcl_crimson:crimson_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.006,
-		biomes = {"CrimsonForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max - 15,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_crimson.."/schematics/crimson_fungus_2.mts",
-		size = {x = 5, y = 12, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		name = "mcl_biomes:crimson_tree3",
-		place_on = {"mcl_crimson:crimson_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.004,
-		biomes = {"CrimsonForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_max - 20,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_crimson.."/schematics/crimson_fungus_3.mts",
-		size = {x = 7, y = 13, z = 7},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:warped_nylium","mcl_crimson:weeping_vines","mcl_nether:netherrack"},
-		sidelen = 16,
-		fill_ratio = 0.063,
-		biomes = {"CrimsonForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_deco_max,
-		flags = "all_ceilings",
-		height = 2,
-		height_max = 8,
-		decoration = "mcl_crimson:weeping_vines",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_crimson:crimson_nylium"},
-		sidelen = 16,
-		fill_ratio = 0.082,
-		biomes = {"CrimsonForest"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors",
-		max_height = 5,
-		decoration = "mcl_crimson:crimson_roots",
-	})
-
-	--SOULSAND VALLEY
-	minetest.register_decoration({
-		deco_type = "simple",
-		place_on = {"mcl_blackstone:soul_soil","mcl_nether:soul_sand"},
-		sidelen = 16,
-		fill_ratio = 0.062,
-		biomes = {"SoulsandValley"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors",
-		max_height = 5,
-		decoration = "mcl_blackstone:soul_fire",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		place_on = {"mcl_blackstone:soul_soil","mcl_nether:soulsand"},
-		sidelen = 16,
-		fill_ratio = 0.000212,
-		biomes = {"SoulsandValley"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_blackstone.."/schematics/mcl_blackstone_nether_fossil_1.mts",
-		size = {x = 5, y = 8, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		place_on = {"mcl_blackstone:soul_soil","mcl_nether:soulsand"},
-		sidelen = 16,
-		fill_ratio = 0.0002233,
-		biomes = {"SoulsandValley"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_blackstone.."/schematics/mcl_blackstone_nether_fossil_2.mts",
-		size = {x = 5, y = 8, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		place_on = {"mcl_blackstone:soul_soil","mcl_nether:soulsand"},
-		sidelen = 16,
-		fill_ratio = 0.000225,
-		biomes = {"SoulsandValley"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_blackstone.."/schematics/mcl_blackstone_nether_fossil_3.mts",
-		size = {x = 5, y = 8, z = 5},
-		rotation = "random",
-	})
-	minetest.register_decoration({
-		deco_type = "schematic",
-		place_on = {"mcl_blackstone:soul_soil","mcl_nether:soulsand"},
-		sidelen = 16,
-		fill_ratio = 0.00022323,
-		biomes = {"SoulsandValley"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		flags = "all_floors, place_center_x, place_center_z",
-		schematic = mod_mcl_blackstone.."/schematics/mcl_blackstone_nether_fossil_4.mts",
-		size = {x = 5, y = 8, z = 5},
-		rotation = "random",
-	})
-	--BASALT DELTA
-	minetest.register_decoration({
-		deco_type = "simple",
-		decoration = "mcl_blackstone:basalt",
-		place_on = {"mcl_blackstone:basalt","mcl_nether:netherrack","mcl_blackstone:blackstone"},
-		sidelen = 80,
-		height_max = 55,
-		noise_params={
-			offset = -0.0085,
-			scale = 0.002,
-			spread = {x = 25, y = 120, z = 25},
-			seed = 2325,
-			octaves = 5,
-			persist = 2,
-			lacunarity = 3.5,
-			flags = "absvalue"
-		},
-		biomes = {"BasaltDelta"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_deco_max - 50,
-		flags = "all_floors, all ceilings",
-	})
-	minetest.register_decoration({
-		deco_type = "simple",
-		decoration = "mcl_blackstone:basalt",
-		place_on = {"mcl_blackstone:basalt","mcl_nether:netherrack","mcl_blackstone:blackstone"},
-		sidelen = 80,
-		height_max = 15,
-		noise_params={
-			offset = -0.0085,
-			scale = 0.004,
-			spread = {x = 25, y = 120, z = 25},
-			seed = 235,
-			octaves = 5,
-			persist = 2.5,
-			lacunarity = 3.5,
-			flags = "absvalue"
-		},
-		biomes = {"BasaltDelta"},
-		y_min = mcl_vars.mg_lava_nether_max + 1,
-		y_max = mcl_vars.mg_nether_deco_max - 15,
-		flags = "all_floors, all ceilings",
-	})
-end
-
-	local deco_ids_trees = {
-		minetest.get_decoration_id("mcl_biomes:mangrove_tree_1"),
-		minetest.get_decoration_id("mcl_biomes:mangrove_tree_2"),
-		minetest.get_decoration_id("mcl_biomes:mangrove_tree_3"),
-	}
-	for _,f in pairs(deco_ids_fungus) do
-		minetest.set_gen_notify({decoration=true}, { f })
-	end
-	for _,f in pairs(deco_ids_trees) do
-		minetest.set_gen_notify({decoration=true}, { f })
-	end
-
-	local function mangrove_roots_gen(gennotify, pr)
-		for _, f in pairs(deco_ids_trees) do
-			for _, pos in ipairs(gennotify["decoration#" .. f] or {}) do
-				local nn = minetest.find_nodes_in_area(vector.offset(pos, -8, -1, -8), vector.offset(pos, 8, 0, 8), {"mcl_mangrove:mangrove_roots"})
-				for _, v in pairs(nn) do
-					local l = pr:next(2, 16)
-					local n = minetest.get_node(vector.offset(v, 0, -1, 0)).name
-					if minetest.get_item_group(n, "water") > 0 then
-						local wl = "mcl_mangrove:water_logged_roots"
-						if n:find("river") then
-							wl = "mcl_mangrove:river_water_logged_roots"
-						end
-						minetest.bulk_set_node(minetest.find_nodes_in_area(vector.offset(v, 0, 0, 0), vector.offset(v, 0, -l, 0), {"group:water"}), {name = wl})
-					elseif n == "mcl_mud:mud" then
-						minetest.bulk_set_node(minetest.find_nodes_in_area(vector.offset(v, 0, 0, 0), vector.offset(v, 0, -l, 0), {"mcl_mud:mud"}), {name = "mcl_mangrove:mangrove_mud_roots"})
-					elseif n == "air" then
-						minetest.bulk_set_node(minetest.find_nodes_in_area(vector.offset(v, 0, 0, 0), vector.offset(v, 0, -l, 0), {"air"}), {name = "mcl_mangrove:mangrove_roots"})
-					end
-				end
-			end
-		end
-	end
-
-	if deco_ids_trees then
-		mcl_mapgen_core.register_generator("chorus_grow", nil, function(minp, maxp, blockseed)
-			local gennotify = minetest.get_mapgen_object("gennotify")
-			local pr = PseudoRandom(blockseed + 14)
-			if not (maxp.y < mcl_vars.mg_overworld_min or minp.y > mcl_vars.mg_overworld_max) then
-				local biomemap = minetest.get_mapgen_object("biomemap")
-				local swamp_biome_id = minetest.get_biome_id("MangroveSwamp")
-				local swamp_shore_id = minetest.get_biome_id("MangroveSwamp_shore")
-				local is_swamp = table.indexof(biomemap, swamp_biome_id) ~= -1
-				local is_swamp_shore = table.indexof(biomemap, swamp_shore_id) ~= -1
-
-				if is_swamp or is_swamp_shore then
-					mangrove_roots_gen(gennotify, pr)
-				end
-			end
-		end)
-	end
-
 end
